@@ -6,5 +6,6 @@ método Simplex con Gurobi.
 """
 
 from .solver import SolverLP
+from .multi_solver import MultiSolver, MultiSolverResult, ProblemResult
 
-__all__ = ["SolverLP"]
+__all__ = ["SolverLP", "MultiSolver", "MultiSolverResult", "ProblemResult"]

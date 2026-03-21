@@ -1,0 +1,30 @@
+# Problema 1: Maximización
+
+max Z = -x + 4y
+
+# restricciones
+
+-3x + y <= 6
+x + 2y <= 4
+
+# bounds
+
+x free
+y >= -3
+
+---
+
+# Problema 2: Maximización
+
+max Z = 3x + 5y
+
+# restricciones
+
+x <= 4
+2y <= 12
+3x + 2y = 18
+
+# bounds
+
+x >= 0
+y >= 0
