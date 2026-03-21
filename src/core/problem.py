@@ -14,6 +14,7 @@ class LinearProblem:
     - objective: List[float] - Coefficients of the objective function.
     - sense: str - Optimization direction ("max" or "min").
     - constraints: List[LinearConstraint] - List of linear constraints.
+    - name: str - Optional name for the problem.
     """
 
     objective: dict[str, float]
@@ -21,3 +22,4 @@ class LinearProblem:
     constraints: list[LinearConstraint]
     variables: list[str]
     bounds: dict[str, VariableBound]
+    name: str = ""

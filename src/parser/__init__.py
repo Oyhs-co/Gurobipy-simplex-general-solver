@@ -7,5 +7,6 @@ that can be used by optimization solvers like Gurobi.
 """
 
 from .lp_parser import LPParser
+from .multi_parser import MultiLPParser
 
-__all__ = ["LPParser"]
+__all__ = ["LPParser", "MultiLPParser"]
