@@ -215,32 +215,32 @@ class LinearVisualization:
     def plot(self, save_path: Optional[str] = None, show: bool = True) -> None:
         """
         Genera la visualización completa del problema.
-        
-        ### parameters:
-        - save_path: str - Ruta para guardar la imagen (opcional).
-        - show: bool - Si True, muestra el gráfico.
+
+        Parameters:
+            save_path: Ruta para guardar la imagen (opcional).
+            show: Si True, muestra el gráfico.
         """
         fig, ax = plt.subplots(figsize=(10, 8))
-        
-        # Determinar el rango del gráfico
-        x_max, y_max = self._calculate_plot_range()
-        
+
+        # Determinar el rango del gráfico (permite valores negativos)
+        (x_min, x_max), (y_min, y_max) = self._calculate_plot_range()
+
         # Graficar las rectas de las restricciones
-        self._plot_constraints(ax, (0, x_max))
-        
+        self._plot_constraints(ax, (x_min, x_max))
+
         # Encontrar y graficar la región factible
-        self._plot_feasible_region(ax, (0, x_max), (0, y_max))
-        
+        self._plot_feasible_region(ax, (x_min, x_max), (y_min, y_max))
+
         # Graficar las intersecciones
         self._plot_intersections(ax)
-        
+
         # Graficar la solución óptima si existe
         if self.solution:
             self._plot_solution(ax)
-        
-        # Configurar el gráfico
-        ax.set_xlim(-x_max * 0.05, x_max * 1.1)
-        ax.set_ylim(-y_max * 0.05, y_max * 1.1)
+
+        # Configurar el gráfico con plano cartesiano completo
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
         ax.set_xlabel(self.var_x, fontsize=12)
         ax.set_ylabel(self.var_y, fontsize=12)
         ax.set_title(f"Region Factible - {self.problem.sense.upper()} {self._format_objective()}", fontsize=14)
@@ -248,49 +248,76 @@ class LinearVisualization:
         ax.axhline(y=0, color='k', linewidth=0.5)
         ax.axvline(x=0, color='k', linewidth=0.5)
         ax.legend(loc='upper right')
-        
+
         plt.tight_layout()
-        
+
         if save_path:
             plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        
+
         if show:
             plt.show()
-        
+
         plt.close()
     
-    def _calculate_plot_range(self) -> tuple[float, float]:
+    def _calculate_plot_range(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """
-        Calcula el rango apropiado para el gráfico.
-        
-        ### returns:
-        - tuple[float, float] - Rango máximo en x e y.
+        Calcula el rango apropiado para el gráfico, permitiendo valores negativos.
+
+        Returns:
+            tuple de rangos (x_min, x_max), (y_min, y_max).
         """
+        x_min = -10
         x_max = 10
+        y_min = -10
         y_max = 10
-        
+
+        # Usar la solución óptima para determinar el centro del gráfico
+        if self.solution:
+            sol_x = self.solution.variables.get(self.var_x, 0)
+            sol_y = self.solution.variables.get(self.var_y, 0)
+
+            # Expandir según la solución
+            x_max = max(x_max, sol_x * 2 if sol_x > 0 else abs(sol_x) * 0.5)
+            x_min = min(x_min, sol_x * 2 if sol_x < 0 else -abs(sol_x) * 0.5)
+            y_max = max(y_max, sol_y * 2 if sol_y > 0 else abs(sol_y) * 0.5)
+            y_min = min(y_min, sol_y * 2 if sol_y < 0 else -abs(sol_y) * 0.5)
+
         for c in self.problem.constraints:
-            # Para restricciones de la forma ax + by <= rhs
             a = c.coefficients.get(self.var_x, 0)
             b = c.coefficients.get(self.var_y, 0)
             rhs = c.rhs
-            
+
             if abs(b) < 1e-10 and abs(a) > 1e-10:
-                # x <= rhs/a o x >= rhs/a
                 x_val = abs(rhs / a)
                 x_max = max(x_max, x_val * 1.5)
+                x_min = min(x_min, -x_val * 0.5)
             elif abs(a) < 1e-10 and abs(b) > 1e-10:
-                # y <= rhs/b o y >= rhs/b
                 y_val = abs(rhs / b)
                 y_max = max(y_max, y_val * 1.5)
+                y_min = min(y_min, -y_val * 0.5)
             else:
-                # Intersecciones con ejes
                 if abs(b) > 1e-10:
-                    x_max = max(x_max, abs(rhs / b) * 1.5)
+                    x_int = rhs / b
+                    x_max = max(x_max, x_int * 1.5)
+                    x_min = min(x_min, x_int * 0.5 if x_int > 0 else x_int * 1.5)
                 if abs(a) > 1e-10:
-                    y_max = max(y_max, abs(rhs / a) * 1.5)
-        
-        return x_max, y_max
+                    y_int = rhs / a
+                    y_max = max(y_max, y_int * 1.5)
+                    y_min = min(y_min, y_int * 0.5 if y_int > 0 else y_int * 1.5)
+
+        # Asegurar un rango mínimo
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        if x_range < 5:
+            mid = (x_max + x_min) / 2
+            x_min = mid - 2.5
+            x_max = mid + 2.5
+        if y_range < 5:
+            mid = (y_max + y_min) / 2
+            y_min = mid - 2.5
+            y_max = mid + 2.5
+
+        return (x_min, x_max), (y_min, y_max)
     
     def _plot_constraints(self, ax, x_range: tuple[float, float]) -> None:
         """
