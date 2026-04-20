@@ -4,15 +4,14 @@ from dataclasses import dataclass
 @dataclass
 class LinearConstraint:
     """
-    Represents a linear constraint in the form of:
+    Representa una restricción lineal de la forma:
 
     a1*x1 + a2*x2 + ... + an*xn (<=, >=, =) b
 
-    ### attributes:
-        -  coefficients: List[float] - Coefficients of the variables
-        in the constraint.
-        - rhs: float - Right-hand side value of the constraint.
-        - sense: str - Type of constraint ("<=", ">=", "=").
+    ### atributos:
+    - coefficients: dict[str, float] - Coeficientes de las variables en la restricción.
+    - rhs: float - Valor del lado derecho de la restricción.
+    - sense: str - Tipo de restricción ("<=", ">=", "=").
     """
 
     coefficients: dict[str, float]

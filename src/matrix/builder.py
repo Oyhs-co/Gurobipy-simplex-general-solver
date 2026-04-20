@@ -1,3 +1,7 @@
+"""
+Constructor de problemas de programación lineal usando Polars.
+"""
+
 import polars as pl
 from ..core import LinearProblem
 from .matrix import PolarsLP
@@ -5,19 +9,28 @@ from .matrix import PolarsLP
 
 class LPBuilder:
     """
-    Builds a linear programming problem from a text representation.
+    Construye una representación Polars de un problema de PL.
+
+    ### atributos:
+    - problem: LinearProblem - El problema de PL a construir.
     """
 
     def __init__(self, problem: LinearProblem) -> None:
         """
-        Initializes the LPBuilder with the provided text.
+        Inicializa el constructor con un problema de PL.
 
-        ### parameters:
-        - txt: str - Text representation of the linear programming problem.
-       """
+        Args:
+            problem: LinearProblem - El problema de PL a construir.
+        """
         self.problem = problem
 
     def build(self) -> PolarsLP:
+        """
+        Construye el objeto PolarsLP con DataFrames.
+
+        Returns:
+            PolarsLP: Estructura Polars con el problema.
+        """
 
         objective = self._build_objective()
         coefficients = self._build_coefficients()
@@ -33,7 +46,7 @@ class LPBuilder:
         )
 
     def _build_objective(self) -> pl.DataFrame:
-
+        """Construye el DataFrame de la función objetivo."""
         rows: list[dict[str, str | float]] = []
 
         for var, coeff in self.problem.objective.items():
@@ -42,6 +55,7 @@ class LPBuilder:
         return pl.DataFrame(rows)
 
     def _build_coefficients(self) -> pl.DataFrame:
+        """Construye el DataFrame de coeficientes."""
         rows: list[dict[str, str | float]] = []
 
         for i, constraint in enumerate(self.problem.constraints):
@@ -58,6 +72,7 @@ class LPBuilder:
         return pl.DataFrame(rows)
 
     def _build_constraints(self) -> pl.DataFrame:
+        """Construye el DataFrame de restricciones."""
         rows: list[dict[str, str | float]] = []
 
         for i, constraint in enumerate(self.problem.constraints):
@@ -73,6 +88,7 @@ class LPBuilder:
         return pl.DataFrame(rows)
 
     def _build_bounds(self) -> pl.DataFrame:
+        """Construye el DataFrame de límites."""
         rows: list[dict[str, str | float | None]] = []
 
         for var, bound in self.problem.bounds.items():
