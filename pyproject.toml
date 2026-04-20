@@ -1,7 +1,7 @@
 [project]
 name = "gurobipy-simplex-general-solver"
-version = "0.1.0"
-description = ""
+version = "1.0.0"
+description = "Easily Linear Programming Solver with Gurobi and Simplex Method"
 authors = [
     {name = "Oyhs-co",email = "oyhsotelo@gmail.com"}
 ]

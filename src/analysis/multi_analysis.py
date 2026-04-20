@@ -1,10 +1,10 @@
 """
-Módulo de análisis para múltiples problemas de programación lineal.
-Genera reportes académicos profesionales usando fpdf2.
+Modulo de analisis para multiples problemas de programacion lineal.
+Genera reportes academicos profesionales usando fpdf2.
 
-Este módulo produce informes detallados para múltiples problemas de
-programación lineal, incluyendo análisis de holguras, costos reducidos,
-precios sombra y gráficos de región factible para problemas de 2 variables.
+Este modulo produce informes detallados para multiples problemas de
+programacion lineal, incluyendo analisis de holguras, costos reducidos,
+precios sombra y graficos de region factible para problemas de 2 variables.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from ..solver import MultiSolverResult, ProblemResult
 # CONSTANTES DE ESTILO
 # ============================================================
 
-# Configuración de página carta
+# Configuracion de pagina carta
 PAGE_WIDTH = 215.9  # mm (carta)
 PAGE_HEIGHT = 279.4  # mm
 MARGIN = 20  # mm
@@ -49,14 +49,14 @@ class ReporteAcademicoMulti(FPDF):
     """Clase base para reportes multi-problema."""
 
     def header(self):
-        """No mostrar header en todas las páginas."""
+        """No mostrar header en todas las paginas."""
         pass
 
     def footer(self):
-        """Pie de página completo."""
+        """Pie de pagina completo."""
         self.set_y(-15)
 
-        # Línea separadora
+        # Linea separadora
         self.set_draw_color(*COLOR_PRIMARY)
         self.set_line_width(0.3)
         self.line(MARGIN, self.get_y(), PAGE_WIDTH - MARGIN, self.get_y())
@@ -71,18 +71,15 @@ class ReporteAcademicoMulti(FPDF):
         self.cell(0, 5, "Solucion de Programas Lineales - Gurobi",
                   align=Align.C, new_y=YPos.NEXT)
 
-        # Número de página
+        # Numero de pagina
         self.cell(0, 5, f"Pagina {self.page_no()}", align=Align.C)
 
 
-# ============================================================
-# CLASE PRINCIPAL DE ANÁLISIS
-# ============================================================
 
 class MultiLPAnalysis:
     """
-    Genera reportes académicos profesionales para múltiples problemas
-    de programación lineal.
+    Genera reportes academicos profesionales para multiples problemas
+    de programacion lineal.
     """
 
     def __init__(self, results: MultiSolverResult):
@@ -91,10 +88,10 @@ class MultiLPAnalysis:
 
     def generate_pdf(self, output_path: str) -> None:
         """
-        Genera un reporte académico completo para múltiples problemas.
+        Genera un reporte academico completo para multiples problemas.
 
         Args:
-            output_path: Ruta donde se guardará el PDF.
+            output_path: Ruta donde se guardara el PDF.
         """
         pdf = ReporteAcademicoMulti()
         pdf.set_margins(MARGIN, MARGIN, MARGIN)
@@ -110,24 +107,20 @@ class MultiLPAnalysis:
         self.page_count += 1
         self._build_resumen(pdf)
 
-        # Página para cada problema
+        # Pagina para cada problema
         for i, result in enumerate(self.results.results):
             self._build_problema_individual(pdf, result, i + 1)
 
-        # Página de resumen de tiempos
+        # Pagina de resumen de tiempos
         pdf.add_page()
         self.page_count += 1
         self._build_tiempos_resumen(pdf)
 
         pdf.output(output_path)
 
-    # --------------------------------------------------------
-    # PORTADA
-    # --------------------------------------------------------
-
     def _build_portada(self, pdf: 'ReporteAcademicoMulti') -> None:
         """Construye la portada del reporte."""
-        # Título principal
+        # Titulo principal
         pdf.set_font('Helvetica', 'B', 28)
         pdf.set_text_color(*COLOR_PRIMARY)
         pdf.ln(45)
@@ -136,7 +129,7 @@ class MultiLPAnalysis:
 
         pdf.ln(8)
 
-        # Subtítulo
+        # Subtitulo
         pdf.set_font('Helvetica', 'I', 16)
         pdf.set_text_color(*COLOR_SECONDARY)
         pdf.cell(0, 12, "Reporte Multi-Problema de Optimizacion",
@@ -144,7 +137,7 @@ class MultiLPAnalysis:
 
         pdf.ln(35)
 
-        # Información del sistema
+        # Informacion del sistema
         pdf.set_font('Helvetica', '', 12)
         pdf.set_text_color(60, 60, 60)
 
@@ -163,7 +156,7 @@ class MultiLPAnalysis:
 
         pdf.ln(35)
 
-        # Información de versión
+        # Informacion de version
         pdf.set_font('Helvetica', '', 10)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 7, f"Optimizador: Gurobi", align=Align.C,
@@ -186,7 +179,7 @@ class MultiLPAnalysis:
 
         pdf.ln(15)
 
-        # Línea decorativa
+        # Linea decorativa
         pdf.set_draw_color(*COLOR_PRIMARY)
         pdf.set_line_width(1)
         pdf.line(PAGE_WIDTH/2 - 50, pdf.get_y(),
@@ -194,26 +187,22 @@ class MultiLPAnalysis:
 
         pdf.set_text_color(0, 0, 0)
 
-    # --------------------------------------------------------
-    # RESUMEN EJECUTIVO
-    # --------------------------------------------------------
-
     def _build_resumen(self, pdf: 'ReporteAcademicoMulti') -> None:
         """Construye el resumen ejecutivo completo."""
-        # Título
+        # Titulo
         pdf.set_font('Helvetica', 'B', 18)
         pdf.set_text_color(*COLOR_PRIMARY)
         pdf.cell(0, 10, "RESUMEN EJECUTIVO", align=Align.C, new_y=YPos.NEXT)
 
         pdf.ln(5)
 
-        # Línea
+        # Linea
         pdf.set_draw_color(*COLOR_PRIMARY)
         pdf.set_line_width(0.8)
         pdf.line(MARGIN, pdf.get_y(), PAGE_WIDTH - MARGIN, pdf.get_y())
         pdf.ln(8)
 
-        # Estadísticas
+        # Estadisticas
         self._build_estadisticas_resumen(pdf)
 
         pdf.ln(10)
@@ -223,11 +212,11 @@ class MultiLPAnalysis:
 
         pdf.ln(10)
 
-        # Interpretación
+        # Interpretacion
         self._build_interpretacion(pdf)
 
     def _build_estadisticas_resumen(self, pdf: 'ReporteAcademicoMulti') -> None:
-        """Construye las estadísticas del resumen."""
+        """Construye las estadisticas del resumen."""
         total = len(self.results.results)
         exitosos = len(self.results.get_successful_results())
         fallidos = len(self.results.get_failed_results())
@@ -250,7 +239,7 @@ class MultiLPAnalysis:
                              for r in self.results.get_successful_results()
                              if r.solution.objective_value is not None)
 
-        # Fondo para estadísticas
+        # Fondo para estadisticas
         pdf.set_fill_color(*COLOR_BG_LIGHT)
         pdf.rect(MARGIN, pdf.get_y(), 175.9, 35, 'F')
 
@@ -302,7 +291,7 @@ class MultiLPAnalysis:
         pdf.set_text_color(0, 0, 0)
 
         for i, result in enumerate(self.results.results):
-            # Determinar color según estado
+            # Determinar color segun estado
             if result.error:
                 pdf.set_text_color(*COLOR_ERROR)
                 estado = "ERROR"
@@ -343,7 +332,7 @@ class MultiLPAnalysis:
             pdf.set_text_color(0, 0, 0)
 
     def _build_interpretacion(self, pdf: 'ReporteAcademicoMulti') -> None:
-        """Construye la interpretación de resultados."""
+        """Construye la interpretacion de resultados."""
         total = len(self.results.results)
         exitosos = len(self.results.get_successful_results())
 
@@ -361,16 +350,12 @@ class MultiLPAnalysis:
 
         pdf.set_text_color(0, 0, 0)
 
-    # --------------------------------------------------------
-    # PÁGINA DE PROBLEMA INDIVIDUAL
-    # --------------------------------------------------------
-
     def _build_problema_individual(
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult, num: int
     ) -> None:
-        """Construye una página para un problema individual."""
-        # Verificar si necesitamos nueva página
+        """Construye una pagina para un problema individual."""
+        # Verificar si necesitamos nueva pagina
         if pdf.get_y() > PAGE_HEIGHT - 80:
             pdf.add_page()
             self.page_count += 1
@@ -378,7 +363,7 @@ class MultiLPAnalysis:
         pdf.add_page()
         self.page_count += 1
 
-        # Título
+        # Titulo
         pdf.set_font('Helvetica', 'B', 16)
         pdf.set_text_color(*COLOR_PRIMARY)
         pdf.cell(0, 10, f"{result.problem.name or f'Problema {num}'}",
@@ -386,7 +371,7 @@ class MultiLPAnalysis:
 
         pdf.ln(3)
 
-        # Línea
+        # Linea
         pdf.set_draw_color(*COLOR_PRIMARY)
         pdf.set_line_width(0.5)
         pdf.line(MARGIN, pdf.get_y(), PAGE_WIDTH - MARGIN, pdf.get_y())
@@ -397,7 +382,7 @@ class MultiLPAnalysis:
             self._build_error_problema(pdf, result)
             return
 
-        # Función objetivo
+        # Funcion objetivo
         self._build_funcion_objetivo(pdf, result)
 
         pdf.ln(5)
@@ -407,14 +392,14 @@ class MultiLPAnalysis:
 
         pdf.ln(5)
 
-        # Solución óptima
+        # Solucion optima
         self._build_solucion(pdf, result)
 
-        # Gráfico si tiene 2 variables
+        # Grafico si tiene 2 variables
         if len(result.problem.variables) == 2:
             self._build_grafico(pdf, result)
 
-        # Análisis de holguras
+        # Analisis de holguras
         self._build_holguras(pdf, result)
 
         # Tiempos del problema
@@ -424,7 +409,7 @@ class MultiLPAnalysis:
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult
     ) -> None:
-        """Construye la sección de error."""
+        """Construye la seccion de error."""
         pdf.set_font('Helvetica', 'B', 14)
         pdf.set_text_color(*COLOR_ERROR)
         pdf.cell(0, 10, "ERROR EN EL PROBLEMA", align=Align.C, new_y=YPos.NEXT)
@@ -439,7 +424,7 @@ class MultiLPAnalysis:
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult
     ) -> None:
-        """Construye la sección de función objetivo."""
+        """Construye la seccion de funcion objetivo."""
         pdf.set_font('Helvetica', 'B', 12)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 8, "Funcion Objetivo:", new_y=YPos.NEXT)
@@ -450,7 +435,7 @@ class MultiLPAnalysis:
         pdf.cell(20, 7, f"Tipo: {tipo}")
         pdf.ln()
 
-        # Mostrar función objetivo formateada
+        # Mostrar funcion objetivo formateada
         obj_str = self._format_objective(result.problem.objective)
         pdf.set_font('Helvetica', 'B', 12)
         pdf.set_text_color(0, 102, 0)
@@ -493,7 +478,7 @@ class MultiLPAnalysis:
             cstr = self._format_constraint(c)
             slack = holguras.get(i, 0)
 
-            # Color según si es activa
+            # Color segun si es activa
             if abs(slack) < 1e-6:
                 pdf.set_text_color(*COLOR_ERROR)  # Activa
             else:
@@ -512,7 +497,7 @@ class MultiLPAnalysis:
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult
     ) -> None:
-        """Construye la sección de solución."""
+        """Construye la seccion de solucion."""
         pdf.set_font('Helvetica', 'B', 14)
         pdf.set_text_color(*COLOR_PRIMARY)
         pdf.cell(0, 10, "SOLUCION OPTIMA", new_y=YPos.NEXT)
@@ -532,7 +517,7 @@ class MultiLPAnalysis:
 
         pdf.ln(3)
 
-        # Valor óptimo
+        # Valor optimo
         if result.solution.objective_value is not None:
             pdf.set_font('Helvetica', 'B', 14)
             pdf.set_text_color(0, 0, 150)
@@ -575,9 +560,9 @@ class MultiLPAnalysis:
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult
     ) -> None:
-        """Construye el gráfico de región factible usando LinearVisualization."""
+        """Construye el grafico de region factible usando LinearVisualization."""
         try:
-            # Importar la clase de visualización existente
+            # Importar la clase de visualizacion existente
             from ..visualization import LinearVisualization
 
             # Crear visualizador
@@ -587,7 +572,7 @@ class MultiLPAnalysis:
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
                 temp_path = tmp.name
 
-            # Generar el gráfico
+            # Generar el grafico
             viz.plot(save_path=temp_path, show=False)
 
             # Insertar imagen en PDF
@@ -618,7 +603,7 @@ class MultiLPAnalysis:
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult
     ) -> None:
-        """Construye la tabla de análisis de holguras."""
+        """Construye la tabla de analisis de holguras."""
         pdf.set_font('Helvetica', 'B', 12)
         pdf.set_text_color(0, 0, 0)
         pdf.cell(0, 8, "Analisis de Holguras:", new_y=YPos.NEXT)
@@ -685,15 +670,11 @@ class MultiLPAnalysis:
 
         return holguras
 
-    # --------------------------------------------------------
-    # TIEMPOS
-    # --------------------------------------------------------
-
     def _build_tiempos_problema(
         self, pdf: 'ReporteAcademicoMulti',
         result: ProblemResult
     ) -> None:
-        """Construye la sección de tiempos de un problema."""
+        """Construye la seccion de tiempos de un problema."""
         # Verificar espacio
         if pdf.get_y() > PAGE_HEIGHT - 50:
             pdf.add_page()
@@ -745,7 +726,7 @@ class MultiLPAnalysis:
         pdf.line(MARGIN, pdf.get_y(), PAGE_WIDTH - MARGIN, pdf.get_y())
         pdf.ln(8)
 
-        # Información técnica
+        # Informacion tecnica
         pdf.set_font('Helvetica', '', 9)
         pdf.set_text_color(60, 60, 60)
 
@@ -817,7 +798,7 @@ class MultiLPAnalysis:
         pdf.set_text_color(0, 0, 0)
 
         for i, result in enumerate(self.results.results):
-            # Color según estado
+            # Color segun estado
             if result.error:
                 pdf.set_text_color(*COLOR_ERROR)
                 estado = "ERROR"
@@ -837,12 +818,8 @@ class MultiLPAnalysis:
 
             pdf.set_text_color(0, 0, 0)
 
-    # --------------------------------------------------------
-    # MÉTODOS AUXILIARES
-    # --------------------------------------------------------
-
     def _format_objective(self, obj: dict) -> str:
-        """Formatea la función objetivo."""
+        """Formatea la funcion objetivo."""
         terms = []
         for var in sorted(obj.keys()):
             coeff = obj[var]
@@ -862,7 +839,7 @@ class MultiLPAnalysis:
         return result
 
     def _format_constraint(self, c) -> str:
-        """Formatea una restricción."""
+        """Formatea una restriccion."""
         terms = []
         for var in sorted(c.coefficients.keys()):
             coeff = c.coefficients[var]
