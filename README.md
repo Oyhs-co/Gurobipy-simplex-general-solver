@@ -1,625 +1,257 @@
 # Gurobipy-Simplex-General-Solver
 
-## Resolvedor Profesional de Programación Lineal con Método Simplex y Optimización Gurobi
+## Resumen del Proyecto
 
----
+Gurobipy-Simplex-General-Solver es un sistema profesional para resolver problemas de Programacion Lineal (PL). El sistema combina el Metodo Simplex clasico con el optimizador comercial Gurobi, ofreciendo capacidades completas de visualizacion grafica y generacion de informes academicos en formato PDF.
 
-<div align="center">
-
-**Un sistema completo de resolución de problemas de Programación Lineal (LP) que combina la robustez del método Simplex con el poder computacional del optimizador comercial Gurobi, incluyendo visualización gráfica de regiones factibles y generación de reportes académicos profesionales en formato PDF.**
-
-*Desarrollado en Python con integración nativa de Gurobi, Polars, Matplotlib y fpdf2*
-
-</div>
+Esta herramienta esta disenada especificamente para uso educativo y de practica, permitiendo a estudiantes y profesionales aprender y aplicar conceptos de programacion lineal de manera practica.
 
 ---
 
 ## Tabla de Contenidos
 
-1. [Descripción del Proyecto](#1-descripción-del-proyecto)
-2. [Arquitectura del Sistema](#2-arquitectura-del-sistema)
-3. [Instalación](#3-instalación)
-4. [Estructura del Proyecto](#4-estructura-del-proyecto)
-5. [Descripción Técnica de Módulos](#5-descripción-técnica-de-módulos)
-6. [Uso y Comandos](#6-uso-y-comandos)
-7. [Formato de Archivos de Entrada](#7-formato-de-archivos-de-entrada)
-8. [Módulo de Visualización](#8-módulo-de-visualización)
-9. [Módulo de Análisis Multi-Problema](#9-módulo-de-análisis-multi-problema)
-10. [Algoritmos y Complejidad](#10-algoritmos-y-complejidad)
-11. [Referencias Técnicas](#11-referencias-técnicas)
-12. [Licencia y Contribuciones](#12-licencia-y-contribuciones)
+1. Arquitectura del Sistema
+2. Requisitos del Sistema
+3. Instalacion
+4. Uso desde Linea de Comandos
+5. Formato de Archivos de Problemas
+6. Estructura del Proyecto
+7. Descripcion Tecnica de Modulos
+8. Clases y Funciones Principales
+9. Analisis de Sensibilidad
+10. Diagnostico de Infactibilidad
+11. Configuracion del Solucionador
+12. Informe PDF
+13. Formato CPLEX/LP
+14. Validacion de Problemas
+15. Licencia
+16. Version
 
 ---
 
-## 1. Descripción del Proyecto
+## 1. Arquitectura del Sistema
 
-### 1.1 Propósito del Sistema
+### 1.1 Diagrama de Componentes
 
-El **Gurobipy-Simplex-General-Solver** es un sistema de optimización matemática de propósito general diseñado para resolver problemas de **Programación Lineal (LP)** mediante la integración de dos enfoques complementarios: el clásico **Método Simplex** de George Dantzig y el optimizador comercial de alto rendimiento **Gurobi**.
+```mermaid
+flowchart TB
+    subgraph PRESENTACION["Capa de Presentacion"]
+        CLI["main.py - Interfaz CLI"]
+    end
+    
+    subgraph VISUALIZATION["Capa de Visualizacion"]
+        VIS["visualization.py - Graficos matplotlib"]
+    end
+    
+    subgraph ANALYSIS["Capa de Analisis"]
+        AN["analysis.py - Reporte single"]
+        MULTI_AN["multi_analysis.py - Reporte multi"]
+    end
+    
+    subgraph SOLVER["Capa de Solucion"]
+        SOL["solver.py - Gurobi"]
+        MULTI_SOL["multi_solver.py - Multi problema"]
+    end
+    
+    subgraph MATRIX["Capa de Construccion"]
+        BUILD["builder.py - Polars"]
+    end
+    
+    subgraph PARSER["Capa de Parsing"]
+        LP_PARSER["lp_parser.py - Formato propio"]
+        CPLEX_PARSER["cplex_parser.py - Formato CPLEX/LP"]
+        MULTI_PARSER["multi_parser.py - Multi problema"]
+    end
+    
+    subgraph CORE["Capa Core"]
+        PROB["problem.py - LinearProblem"]
+        CONST["constraint.py - LinearConstraint"]
+        BOUND["bound.py - VariableBound"]
+        SOLUTION["solution.py - Solution"]
+        EXC["exceptions.py - Excepciones"]
+    end
+    
+    subgraph UTILS["Capa de Utilidades"]
+        VAL["validation.py - Validacion"]
+        EXP["exporter.py - Exportacion"]
+        LOG["logging.py - Registro"]
+    end
+    
+    CLI --> LP_PARSER
+    CLI --> CPLEX_PARSER
+    CLI --> MULTI_PARSER
+    
+    LP_PARSER --> PROB
+    CPLEX_PARSER --> PROB
+    MULTI_PARSER --> PROB
+    
+    PROB --> BUILD
+    BUILD --> SOL
+    SOL --> SOLUTION
+    
+    PROB --> VAL
+    VAL --> EXP
+    
+    SOLUTION --> VIS
+    SOLUTION --> AN
+    SOLUTION --> MULTI_AN
+```
 
-Este proyecto proporciona una solución completa que abarca desde el parseo de problemas definidos en archivos de texto hasta la generación de visualizaciones gráficas y reportes académicos profesionales, soportando tanto problemas mono-objetivo como múltiples problemas simultáneos.
+### 1.2 Flujo de Datos
 
-### 1.2 Funcionalidades Principales
+```mermaid
+flowchart LR
+    subgraph ENTRADA
+        TXT["Archivo .txt"]
+        LP["Archivo .lp"]
+    end
+    
+    subgraph PROCESO
+        PAR["Parser"]
+        BUILD["Constructor"]
+        SOLVE["Solver Gurobi"]
+    end
+    
+    subgraph SALIDA
+        PNG["Grafico .png"]
+        PDF["Reporte .pdf"]
+        CONSOLE["Salida consola"]
+    end
+    
+    TXT --> PAR
+    LP --> PAR
+    PAR --> BUILD
+    BUILD --> SOLVE
+    SOLVE --> CONSOLE
+    SOLVE --> PNG
+    SOLVE --> PDF
+```
 
-| Funcionalidad | Descripción |
-|---------------|-------------|
-| **Resolución de Problemas LP** | Soluciona problemas de programación lineal con restricciones de <=, >=, y = |
-| **Modo Multi-Problema** | Resuelve múltiples problemas desde un único archivo mediante flag `--multi` |
-| **Optimización Gurobi** | Utiliza el optimizador comercial Gurobi para soluciones exactas y eficientes |
-| **Visualización Gráfica** | Genera gráficos de regiones factibles en 2D con plano cartesiano completo (soporta valores negativos) |
-| **Reportes PDF** | Crea informes académicos profesionales con análisis detallados |
-| **Análisis de Sensibilidad** | Calcula holguras, precios sombra y análisis de factibilidad |
-| **Soporte de Variables** | Maneja variables no negativas, límites superiores, inferiores y variables libres |
-| **Medición de Rendimiento** | Registra tiempos de ejecución de cada fase del proceso |
+### 1.3 Capas del Sistema
 
-### 1.3 Características Avanzadas
-
-- **Parsers dualessimplex**: Parser para formato LP estándar y formato personalizado
-- **Constructor matricial**: Construcción eficiente de matrices usando Polars DataFrames
-- **Validación completa**: Verificación exhaustiva de entrada con mensajes de error claros
-- **Manejo de errores robusto**: Continúa procesando múltiples problemas incluso si algunos fallan
-- **Flexibilidad de delimitadores**: Soporta múltiples separadores (`---`, `===`, `___`) para múltiples problemas
+| Capa | Componente | Descripcion |
+|------|-----------|-------------|
+| Presentacion | main.py | Interfaz CLI que gestiona argumentos y coordina ejecucion |
+| Visualizacion | visualization.py | Genera graficos de regiones factibles 2D |
+| Analisis | analysis.py, multi_analysis.py | Crea reportes PDF academicos |
+| Solucion | solver.py, multi_solver.py | Implementa optimizacion con Gurobi |
+| Construccion | matrix/builder.py | Convierte a estructuras Polars |
+| Parsing | lp_parser.py, cplex_parser.py, multi_parser.py | Interpreta archivos de entrada |
+| Core | problem.py, constraint.py, bound.py, solution.py | Define estructuras fundamentales |
+| Utilidades | validation.py, exporter.py, logging.py | Funciones auxiliares |
 
 ---
 
-## 2. Arquitectura del Sistema
+## 2. Requisitos del Sistema
 
-### 2.1 Visión General de la Arquitectura
+| Requisito | Version Minima | Descripcion |
+|-----------|---------------|-------------|
+| Python | 3.14 o superior | Lenguaje de programacion utilizado |
+| Gurobi | 13.0 o superior | Optimizador comercial requerido |
+| Memoria RAM | 4 GB minimo (8 GB recomendado) | Para ejecutacion del solver |
+| Espacio en disco | 500 MB | Para instalacion de dependencias |
 
-El sistema sigue una **arquitectura orientada a componentes** con las siguientes capas:
+### Dependencias del Entorno
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CAPA DE PRESENTACIÓN                      │
-│                    (main.py - Interfaz CLI)                     │
-├─────────────────────────────────────────────────────────────────┤
-│                     CAPA DE VISUALIZACIÓN                       │
-│              (visualization.py - Gráficos matplotlib)            │
-├─────────────────────────────────────────────────────────────────┤
-│                       CAPA DE ANÁLISIS                          │
-│       (analysis.py / multi_analysis.py - Reportes PDF)          │
-├─────────────────────────────────────────────────────────────────┤
-│                      CAPA DE SOLUCIÓN                           │
-│              (solver.py / multi_solver.py - Gurobi)             │
-├─────────────────────────────────────────────────────────────────┤
-│                     CAPA DE CONSTRUCCIÓN                        │
-│                 (matrix/builder.py - Polars)                   │
-├─────────────────────────────────────────────────────────────────┤
-│                       CAPA DE PARSING                           │
-│        (parser/lp_parser.py / multi_parser.py)                 │
-├─────────────────────────────────────────────────────────────────┤
-│                        CAPA CORE                                │
-│     (core/problem.py, constraint.py, bound.py, solution.py)     │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 Diseño Orientado a Objetos
-
-El proyecto implementa los siguientes patrones de diseño:
-
-| Patrón | Aplicación |
-|--------|------------|
-| **Data Class** | `LinearProblem`, `Solution`, `ProblemResult`, `MultiSolverResult` |
-| **Factory** | `LPBuilder` construye objetos `PolarsLP` |
-| **Strategy** | Selección entre modo single y multi-problema |
-| **Template Method** | `MultiLPAnalysis` define estructura de reportes |
-
-### 2.3 Flujo de Datos
-
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  Archivo LP  │────▶│   Parser     │────▶│  Problema   │
-│  (.txt)      │     │ (lp_parser)  │     │ (LinearProb)│
-└──────────────┘     └──────────────┘     └──────────────┘
-                                                │
-                                                ▼
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  Visualiz.  │◀────│  Solución    │◀────│ Constructor │
-│ (.png)      │     │ (Solution)   │     │ (LPBuilder) │
-└──────────────┘     └──────────────┘     └──────────────┘
-        │                                       │
-        ▼                                       ▼
-┌──────────────┐                        ┌──────────────┐
-│   Reporte    │                        │   Gurobi    │
-│   PDF        │                        │  Optimizer   │
-└──────────────┘                        └──────────────┘
-```
-
----
-
-## 3. Instalación
-
-### 3.1 Requisitos del Sistema
-
-| Requisito | Versión Mínima | Descripción |
-|-----------|-----------------|-------------|
-| **Sistema Operativo** | Windows 10+, Linux, macOS | Compatible con Windows 11, Ubuntu 20.04+, macOS 12+ |
-| **Python** | 3.14+ | Requiere Python 3.14 o superior |
-| **Gurobi Optimizer** | 13.0+ | Licencia comercial o académica |
-| **Memoria RAM** | 4 GB mínimo | 8 GB recomendado |
-| **Espacio en Disco** | 500 MB | Para dependencias y datos |
-
-### 3.2 Dependencias del Entorno
-
-El proyecto utiliza las siguientes librerías principales:
-
-| Paquete | Versión | Propósito |
+| Paquete | Version | Proposito |
 |---------|---------|-----------|
-| `gurobipy` | >=13.0.1 | Optimizador comercial de Programación Lineal/Entera Mixta (MILP) |
-| `polars` | >=1.39.0 | Biblioteca de DataFrames de alto rendimiento para manipulación de datos |
-| `matplotlib` | >=3.9.0 | Generación de gráficos y visualizaciones 2D |
-| `numpy` | >=2.4.3 | Computación numérica y operaciones matriciales |
-| `fpdf2` | >=2.7.0 | Generación de documentos PDF |
-| `reportlab` | >=4.4.10 | Generación avanzada de PDFs |
+| gurobipy | >=13.0.1 | Optimizador comercial de PL/MILP |
+| polars | >=1.39.0 | DataFrames de alto rendimiento |
+| matplotlib | >=3.9.0 | Generacion de graficos 2D |
+| numpy | >=2.4.3 | Computacion numerica |
+| fpdf2 | >=2.7.0 | Generacion de documentos PDF |
+| reportlab | >=4.4.10 | Generacion avanzada de PDFs |
 
-### 3.3 Pasos de Instalación
+---
 
-#### Paso 1: Clonar el Repositorio
+## 3. Instalacion
 
-```bash
+### Paso 1: Clonar el Repositorio
+
+```
 git clone <repositorio-url>
 cd gurobipy-simplex-general-solver
 ```
 
-#### Paso 2: Instalar Poetry (si no está disponible)
+### Paso 2: Instalar Dependencias
 
-**En Windows:**
-```powershell
-pip install poetry
 ```
-
-**En Linux/macOS:**
-```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
-
-#### Paso 3: Instalar Dependencias
-
-```bash
-poetry install
-```
-
-Opcionalmente, si prefieres pip:
-
-```bash
 pip install gurobipy polars matplotlib numpy fpdf2 reportlab
 ```
 
-#### Paso 3.4: Configurar Licencia de Gurobi
+Tambien puede utilizarse Poetry:
 
-El optimizador Gurobi requiere una licencia válida. Hay varias opciones:
+```
+poetry install
+```
 
-1. **Licencia Gratuita Academica**: Obtén una en [gurobi.com/academic](https://www.gurobi.com/downloads/)
-2. **Licencia Comercial**: Contacta a Gurobi para una licencia de evaluación
-3. **WLS (Web License Service)**: Configura el servicio de licencias web
+### Paso 3: Configurar Licencia de Gurobi
 
-```bash
-# Configurar licencia (ejemplo)
-grbgetkey <licencia-key>
+Gurobi requiere una licencia valida para funcionar. Obtener una licencia academica gratuita en gurobipy.com/academic o contactar a Gurobi para licencias comerciales.
+
+Configurar la licencia con:
+
+```
+grbgetkey TU_CLAVE_DE_LICENCIA
 ```
 
 ---
 
-## 4. Estructura del Proyecto
+## 4. Uso desde Linea de Comandos
 
-```
-gurobipy-simplex-general-solver/
-├── main.py                           # Punto de entrada CLI
-├── pyproject.toml                    # Configuración del proyecto (Poetry)
-├── README.md                         # Documentación principal
-├── LICENSE                           # Licencia MIT
-├── data/
-│   ├── problem.txt                   # Ejemplo de problema LP simple
-│   ├── problem_multi.txt             # Ejemplo de múltiples problemas
-│   ├── problem.png                   # Imagen de problema de ejemplo
-│   └── problem.pdf                   # Reporte PDF de ejemplo
-├── src/
-│   ├── __init__.py                   # Exports públicos del paquete
-│   ├── parser/
-│   │   ├── __init__.py              # Exports del módulo parser
-│   │   ├── lp_parser.py             # Parser de archivos LP
-│   │   └── multi_parser.py          # Parser multi-problema
-│   ├── core/
-│   │   ├── __init__.py              # Exports del módulo core
-│   │   ├── problem.py               # Modelo de problema LP
-│   │   ├── constraint.py            # Representación de restricciones
-│   │   ├── bound.py                 # Representación de límites de variables
-│   │   └── solution.py              # Representación de soluciones
-│   ├── matrix/
-│   │   ├── __init__.py              # Exports del módulo matrix
-│   │   ├── builder.py               # Constructor de matrices Polars
-│   │   └── matrix.py                # Definición de tipos PolarsLP
-│   ├── solver/
-│   │   ├── __init__.py              # Exports del módulo solver
-│   │   ├── solver.py                # Integración con Gurobi
-│   │   └── multi_solver.py          # Solver multi-problema
-│   ├── analysis/
-│   │   ├── __init__.py              # Exports del módulo analysis
-│   │   ├── analysis.py              # Análisis y reportes PDF (single)
-│   │   └── multi_analysis.py        # Análisis y reportes PDF (multi)
-│   └── visualization/
-│       ├── __init__.py              # Exports del módulo visualization
-│       └── visualization.py          # Visualización gráfica 2D
-├── legacy/
-│   ├── Simplex.py                   # Implementación legacy (Simplex manual)
-│   └── Opinion.md                   # Documento de opiniones legacy
-└── test_parser.py                   # Tests del parser
-```
+### Comandos Basicos
 
----
-
-## 5. Descripción Técnica de Módulos
-
-### 5.1 Módulo Principal (`main.py`)
-
-**Ubicación**: `main.py`
-
-**Propósito**: Punto de entrada de la aplicación CLI que gestiona los argumentos de línea de comandos y coordina la ejecución en modo single o multi-problema.
-
-**Clase Principal**: No aplica (funciones globales)
-
-**Funciones**:
-
-| Función | Firma | Descripción |
-|---------|-------|-------------|
-| `main` | `main(argv: list[str] \| None = None) -> None` | Función principal que parsea argumentos y ejecuta el flujo apropiado |
-| `_run_multi` | `_run_multi(text: str, path: Path, visualize: bool, pdf: bool, show_times: bool) -> None` | Ejecuta el modo multi-problema |
-| `_run_single` | `_run_single(text: str, path: Path, visualize: bool, pdf: bool, show_times: bool) -> None` | Ejecuta el modo single-problema |
-
-**Flags CLI Disponibles**:
-
-| Flag | Alias | Descripción |
-|------|-------|-------------|
-| `--multi` | `-m` | Activa el modo multi-problema |
-| `--visualize` | `-v` | Genera visualización gráfica de la región factible |
-| `--pdf` | `-p` | Genera reporte académico en PDF |
-| `--times` | `-t` | Muestra tiempos de ejecución |
-| `--help` | `-h` | Muestra la ayuda |
-
-### 5.2 Módulo de Parsing (`src/parser/`)
-
-#### 5.2.1 Parser LP Individual (`lp_parser.py`)
-
-**Ubicación**: `src/parser/lp_parser.py`
-
-**Propósito**: Parsea problemas de programación lineal definidos en texto plano a objetos `LinearProblem`.
-
-**Clase Principal**: [`LPParser`](src/parser/lp_parser.py:13)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `txt` | `str` | Texto con la definición del problema LP |
-| `bounds` | `dict[str, VariableBound]` | Diccionario de límites de variables |
-
-**Métodos**:
-
-| Método | Firma | Complejidad |
-|--------|-------|-------------|
-| `parse` | `parse() -> LinearProblem` | O(n×m) donde n=líneas, m=variables |
-| `_parse_objective` | `_parse_objective(line: str) -> tuple[str, dict[str, float]]` | O(m) |
-| `_parse_constraint` | `_parse_constraint(line: str) -> LinearConstraint` | O(m) |
-| `_parse_linear_expression` | `_parse_linear_expression(expr: str) -> dict[str, float]` | O(m) |
-| `_is_bound` | `_is_bound(line: str) -> bool` | O(1) |
-| `_parse_bound` | `_parse_bound(line: str) -> None` | O(1) |
-| `_extract_variables` | `_extract_variables(...) -> list[str]` | O(n×m) |
-
-**Excepciones**: `ValueError` para formato inválido
-
-#### 5.2.2 Parser Multi-Problema (`multi_parser.py`)
-
-**Ubicación**: `src/parser/multi_parser.py`
-
-**Propósito**: Parsea múltiples problemas de LP desde un único archivo usando delimitadores.
-
-**Clase Principal**: [`MultiLPParser`](src/parser/multi_parser.py:11)
-
-**Constantes**:
-
-```python
-DELIMITERS = ['---', '===', '___']
-```
-
-**Métodos**:
-
-| Método | Firma | Descripción |
-|--------|-------|-------------|
-| `parse_all` | `parse_all() -> List[LinearProblem]` | Parsea todos los problemas encontrados |
-| `_split_by_delimiter` | `_split_by_delimiter(txt: str) -> List[str]` | Divide el texto usando regex |
-| `count_problems` | `count_problems(txt: str) -> int` [staticmethod] | Cuenta problemas sin parsear |
-
-### 5.3 Módulo Core (`src/core/`)
-
-#### 5.3.1 Modelo de Problema (`problem.py`)
-
-**Ubicación**: `src/core/problem.py`
-
-**Clase Principal**: [`LinearProblem`](src/core/problem.py:7) (dataclass)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `objective` | `dict[str, float]` | Coeficientes de la función objetivo |
-| `sense` | `str` | Dirección de optimización ("max" o "min") |
-| `constraints` | `list[LinearConstraint]` | Lista de restricciones lineales |
-| `variables` | `list[str]` | Lista de nombres de variables |
-| `bounds` | `dict[str, VariableBound]` | Límites de cada variable |
-| `name` | `str` | Nombre opcional del problema |
-
-#### 5.3.2 Restricciones (`constraint.py`)
-
-**Ubicación**: `src/core/constraint.py`
-
-**Clase Principal**: [`LinearConstraint`](src/core/constraint.py:6) (dataclass)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `coefficients` | `dict[str, float]` | Coeficientes de las variables |
-| `rhs` | `float` | Lado derecho de la restricción |
-| `sense` | `str` | Tipo de restricción ("<=", ">=", "=") |
-
-#### 5.3.3 Límites de Variables (`bound.py`)
-
-**Ubicación**: `src/core/bound.py`
-
-**Clase Principal**: [`VariableBound`](src/core/bound.py:5) (dataclass)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `variable` | `str` | Nombre de la variable |
-| `lower` | `float \| None` | Límite inferior |
-| `upper` | `float \| None` | Límite superior |
-
-#### 5.3.4 Solución (`solution.py`)
-
-**Ubicación**: `src/core/solution.py`
-
-**Clase Principal**: [`Solution`](src/core/solution.py:5) (dataclass)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `status` | `str` | Estado de la solución ("OPTIMAL", "INFEASIBLE", "UNBOUNDED") |
-| `objective_value` | `float \| None` | Valor óptimo de la función objetivo |
-| `variables` | `dict[str, float]` | Valores de las variables en la solución |
-
-### 5.4 Módulo Matrix (`src/matrix/`)
-
-#### 5.4.1 Constructor de Matrices (`builder.py`)
-
-**Ubicación**: `src/matrix/builder.py`
-
-**Propósito**: Construye estructuras de datos Polars (DataFrames) para representar el problema LP.
-
-**Clase Principal**: [`LPBuilder`](src/matrix/builder.py:10)
-
-**Métodos**:
-
-| Método | Firma | Descripción |
-|--------|-------|-------------|
-| `build` | `build() -> PolarsLP` | Construye el objeto PolarsLP con DataFrames |
-
-#### 5.4.2 Tipos de Matrices (`matrix.py`)
-
-**Ubicación**: `src/matrix/matrix.py`
-
-**Clase Principal**: [`PolarsLP`](src/matrix/matrix.py:8) (dataclass)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `objective` | `pl.DataFrame` | DataFrame con coeficientes objetivo |
-| `constraints` | `pl.DataFrame` | DataFrame con restricciones |
-| `coefficients` | `pl.DataFrame` | DataFrame con matriz de coeficientes |
-| `bounds` | `pl.DataFrame` | DataFrame con límites de variables |
-| `sense` | `str` | Sentido de optimización |
-
-### 5.5 Módulo Solver (`src/solver/`)
-
-#### 5.5.1 Solver Gurobi (`solver.py`)
-
-**Ubicación**: `src/solver/solver.py`
-
-**Propósito**: Resuelve problemas LP utilizando el optimizador Gurobi.
-
-**Clase Principal**: [`SolverLP`](src/solver/solver.py:8)
-
-**Métodos**:
-
-| Método | Firma | Complejidad |
-|--------|-------|-------------|
-| `solve` | `solve() -> Solution` | O(n³) típico de métodos simplex |
-
-**Estados de Solución**:
-
-| Estado | Descripción |
+| Comando | Descripcion |
 |--------|-------------|
-| `OPTIMAL` | Solución óptima encontrada |
-| `INFEASIBLE` | El problema no tiene región factible |
-| `UNBOUNDED` | La función objetivo puede crecer sin límite |
-| `STATUS_*` | Otro estado de Gurobi |
+| python main.py problema.txt | Resuelve un problema simple |
+| python main.py problema.txt --visualize | Resuelve y genera grafico |
+| python main.py problema.txt --pdf | Resuelve y genera informe PDF |
+| python main.py problema.txt --verbose | Resuelve con salida detallada |
+| python main.py problema.txt --times | Muestra tiempos de ejecucion |
+| python main.py problema.txt --multi | Resuelve multiples problemas |
 
-#### 5.5.2 Solver Multi-Problema (`multi_solver.py`)
+### Flags CLI Disponibles
 
-**Ubicación**: `src/solver/multi_solver.py`
+| Flag | Alias | Descripcion |
+|------|------|-------------|
+| --multi | -m | Activa el modo multi-problema |
+| --visualize | -v | Genera visualizacion grafica |
+| --pdf | -p | Genera reporte academico PDF |
+| --times | -t | Muestra tiempos de ejecucion |
+| --verbose | -V | Salida detallada del solver |
 
-**Clases Principales**:
+### Combinaciones
 
-| Clase | Descripción |
-|-------|-------------|
-| [`ProblemResult`](src/solver/multi_solver.py:15) | Dataclass para resultado de un problema |
-| [`MultiSolverResult`](src/solver/multi_solver.py:27) | Dataclass para resultados múltiples |
-| [`MultiSolver`](src/solver/multi_solver.py:45) | Solver para múltiples problemas |
+Los comandos pueden combinarse para obtener multiples salidas:
 
-**Métodos de MultiSolver**:
-
-| Método | Firma | Descripción |
-|--------|-------|-------------|
-| `solve_all` | `solve_all(problems: List[LinearProblem]) -> MultiSolverResult` | Resuelve todos los problemas |
-| `_solve_single` | `_solve_single(problem: LinearProblem, index: int) -> ProblemResult` | Resuelve un problema individual |
-| `solve_from_text` | `solve_from_text(text: str) -> MultiSolverResult` [staticmethod] | Parsea y resuelve desde texto |
-
-### 5.6 Módulo de Análisis (`src/analysis/`)
-
-#### 5.6.1 Análisis Single (`analysis.py`)
-
-**Ubicación**: `src/analysis/analysis.py`
-
-**Clases**:
-
-| Clase | Descripción |
-|-------|-------------|
-| `ReporteAcademico` | Clase base FPDF para reportes |
-| `LPAnalysis` | Generador de reportes PDF para un problema |
-
-#### 5.6.2 Análisis Multi-Problema (`multi_analysis.py`)
-
-**Ubicación**: `src/analysis/multi_analysis.py`
-
-**Clases**:
-
-| Clase | Descripción |
-|-------|-------------|
-| `ReporteAcademicoMulti` | Clase base FPDF para reportes multi-problema |
-| `MultiLPAnalysis` | Generador de reportes PDF para múltiples problemas |
-
-**Constantes de Estilo**:
-
-```python
-PAGE_WIDTH = 215.9   # mm (carta)
-PAGE_HEIGHT = 279.4  # mm
-MARGIN = 20           # mm
-COLOR_PRIMARY = (0, 51, 102)       # Azul oscuro
-COLOR_SUCCESS = (0, 128, 0)        # Verde
-COLOR_ERROR = (200, 0, 0)          # Rojo
-COLOR_WARNING = (200, 128, 0)      # Naranja
+```
+python main.py problema.txt --visualize --pdf --times --verbose
 ```
 
-### 5.7 Módulo de Visualización (`src/visualization/`)
+### Ejemplos de Salida
 
-**Ubicación**: `src/visualization/visualization.py`
+#### Resolucion Simple
 
-**Clase Principal**: [`LinearVisualization`](src/visualization/visualization.py:21)
-
-**Atributos**:
-
-| Atributo | Tipo | Descripción |
-|----------|------|-------------|
-| `problem` | `LinearProblem` | El problema de programación lineal |
-| `solution` | `Solution \| None` | La solución óptima |
-| `var_x` | `str` | Nombre de la primera variable |
-| `var_y` | `str` | Nombre de la segunda variable |
-
-**Métodos**:
-
-| Método | Firma | Descripción |
-|--------|-------|-------------|
-| `find_intersection` | `find_intersection(c1, c2) -> Optional[tuple[float, float]]` | Encuentra intersección entre dos restricciones |
-| `is_point_feasible` | `is_point_feasible(x, y, constraints) -> bool` | Verifica factibilidad de un punto |
-| `get_constraint_line_x` | `get_constraint_line_x(c, x_range) -> tuple[np.ndarray, np.ndarray]` | Obtiene puntos para graficar restricción |
-| `find_feasible_vertices` | `find_feasible_vertices() -> list[tuple[float, float]]` | Encuentra vértices de la región factible |
-| `plot` | `plot(save_path: Optional[str] = None, show: bool = True) -> None` | Genera la visualización completa |
-| `_calculate_plot_range` | `_calculate_plot_range() -> tuple[tuple[float, float], tuple[float, float]]` | Calcula rango del gráfico (soporta negativos) |
-| `_plot_constraints` | `_plot_constraints(ax, x_range) -> None` | Grafica las rectas de restricciones |
-| `_plot_feasible_region` | `_plot_feasible_region(ax, x_range, y_range) -> None` | Grafica la región factible |
-| `_plot_intersections` | `_plot_intersections(ax) -> None` | Grafica puntos de intersección |
-| `_plot_solution` | `_plot_solution(ax) -> None` | Grafica la solución óptima |
-| `_plot_objective_contour` | `_plot_objective_contour(ax, opt_x, opt_y) -> None` | Grafica líneas de nivel de la función objetivo |
-
----
-
-## 6. Uso y Comandos
-
-### 6.1 Ejecución Básica
-
-#### Resolver un problema simple
-
-```bash
+```
 python main.py data/problem.txt
 ```
 
-#### Mostrar ayuda
+Salida esperada:
 
-```bash
-python main.py --help
-# o
-python main.py -h
-```
-
-### 6.2 Flags Disponibles
-
-| Comando | Descripción |
-|---------|-------------|
-| `python main.py <archivo>` | Resuelve un problema LP |
-| `python main.py <archivo> --visualize` | Resuelve y genera gráfico |
-| `python main.py <archivo> --pdf` | Resuelve y genera reporte PDF |
-| `python main.py <archivo> -v -p` | Resuelve, grafica y genera PDF |
-| `python main.py <archivo> --times` | Muestra tiempos de ejecución |
-| `python main.py <archivo> --multi` | Resuelve múltiples problemas |
-| `python main.py <archivo> -m -p` | Resuelve múltiples y genera PDF |
-
-### 6.3 Ejemplos de Uso
-
-#### Ejemplo 1: Resolución Simple
-
-```bash
-python main.py data/problem.txt
-```
-
-**Salida esperada:**
 ```
 Valor optimo: 30000.00
 x = 30.00
 y = 20.00
 ```
 
-#### Ejemplo 2: Con Visualización
+#### Multiples Problemas
 
-```bash
-python main.py data/problem.txt --visualize
 ```
-
-**Salida esperada:**
-```
-Valor optimo: 30000.00
-x = 30.00
-y = 20.00
-
-Generando visualizacion...
-Grafica guardada en: data/problem.png
-```
-
-#### Ejemplo 3: Con Reporte PDF
-
-```bash
-python main.py data/problem.txt --pdf
-```
-
-**Salida esperada:**
-```
-Valor optimo: 30000.00
-x = 30.00
-y = 20.00
-
-Generando reporte PDF...
-PDF guardado en: data/problem.pdf
-```
-
-#### Ejemplo 4: Múltiples Problemas
-
-```bash
 python main.py data/problem_multi.txt --multi
 ```
 
-**Salida esperada:**
+Salida esperada:
+
 ```
 ==================================================
 MODO MULTI-PROBLEMA
@@ -628,408 +260,1017 @@ Problemas encontrados: 2
 
 --- Problema 1 ---
 Estado: OPTIMAL
-Valor óptimo: 11.4286 (x=-1.14, y=2.57)
+Valor optimo: 11.4286
+Variables: x=-1.14, y=2.57
 Tiempo: 15.23 ms
 
 --- Problema 2 ---
 Estado: OPTIMAL
-Valor óptimo: 36.0000 (x=2.00, y=6.00)
+Valor optimo: 36.0000
+Variables: x=2.00, y=6.00
 Tiempo: 12.45 ms
 
 Problemas resueltos: 2/2
 ```
 
-#### Ejemplo 5: Combinación Completa
+---
 
-```bash
-python main.py data/problem_multi.txt --multi --visualize --pdf --times
+## 5. Formato de Archivos de Problemas
+
+### Funcion Objetivo
+
+La funcion objetivo debe comenzar con "max:" o "min:" seguido de la expresion matematica.
+
+Ejemplos:
+
+```
+max: 3000x + 5000y
+min: 2x + 3y + 5z
 ```
 
-### 6.4 Uso como Librería
+### Restricciones
 
-```python
-from src.parser import LPParser
-from src.matrix import LPBuilder
-from src.solver import SolverLP
+Las restricciones se expresan utilizando los simbolos de comparacion.
 
-# Definir problema en texto
-lp_text = """
+Ejemplos:
+
+```
+x + y <= 100         (menor o igual)
+2x + 3y >= 50       (mayor o igual)  
+x + y = 75           (igual)
+```
+
+### Limites de Variables
+
+Los limites definen el rango de valores que puede tomar cada variable.
+
+Ejemplos:
+
+```
+x >= 0                (limite inferior)
+y <= 50               (limite superior)
+x free                (variable libre, sin limites)
+0 <= x <= 100         (ambos limites simultaneamente)
+```
+
+### Comentarios
+
+Las lineas que comienzan con el simbolo # son tratadas como comentarios y son ignoradas por el parser.
+
+Ejemplo:
+
+```
+# Este es un comentario explicativo
+max: 3x + 2y
+
+# Restriccion de capacidad
+x + y <= 10
+```
+
+### Multiple Problemas
+
+Para definir multiples problemas en un archivo, utilize delimitadores:
+
+```
 max: 3x + 2y
 
 x + y <= 10
 2x + y <= 15
+
 x >= 0
 y >= 0
-"""
-
-# Parsear, construir y resolver
-problem = LPParser(lp_text).parse()
-lp = LPBuilder(problem).build()
-solution = SolverLP(lp).solve()
-
-print(f"Valor óptimo: {solution.objective_value}")
-print(f"Solución: {solution.variables}")
-```
 
 ---
 
-## 7. Formato de Archivos de Entrada
+max: 4x + 3y
 
-### 7.1 Formato Estándar LP
+x <= 5
+y <= 8
 
-El archivo de entrada debe seguir este formato:
-
-```lp
-max: 3000x + 5000y
-
-# restricciones
-2x + 3y <= 120
-x + 3y <= 90
-
-# bounds
 x >= 0
 y >= 0
 ```
 
-### 7.2 Estructura del Archivo
-
-| Sección | Descripción | Ejemplo |
-|---------|-------------|---------|
-| **Función objetivo** | Primera línea: `max:` o `min:` seguido de expresión lineal | `max: 3000x + 5000y` |
-| **Restricciones** | Expresiones lineales con operador y valor RHS | `2x + 3y <= 120` |
-| **Bounds** | Límites de variables | `x >= 0`, `0 <= y <= 100` |
-
-### 7.3 Operadores Soportados
-
-| Operador | Descripción |
-|----------|-------------|
-| `<=` | Menor o igual que |
-| `>=` | Mayor o igual que |
-| `=` | Igual a |
-
-### 7.4 Formatos de Bounds
-
-```lp
-x >= 0          # Límite inferior
-x <= 10         # Límite superior
-0 <= x <= 10    # Límites doble
-x free          # Variable libre (sin restricciones)
-x unrestricted  # Variable libre (sin restricciones)
-```
-
-### 7.5 Múltiples Problemas
-
-Para definir múltiples problemas en un archivo, use delimitadores:
-
-```lp
-# Problema 1: Maximización
-
-max Z = -x + 4y
-
-# restricciones
--3x + y <= 6
-x + 2y <= 4
-
-# bounds
-x free
-y >= -3
+Delimitadores soportados: ---, ===, ___
 
 ---
 
-# Problema 2: Maximización
+## 6. Estructura del Proyecto
 
-max Z = 3x + 5y
+```
+gurobipy-simplex-general-solver/
+├── main.py                              # Punto de entrada CLI
+├── pyproject.toml                       # Configuracion del proyecto
+├── README.md                          # Documentacion principal
+├── LICENSE                            # Licencia MIT
+├── CONTRIBUTING.md                  # Guia de contribuciones
+├── CHANGELOG.md                     # Historial de cambios
+├── data/
+│   ├── problem.txt                  # Problema de ejemplo
+│   ├── problem_multi.txt          # Multiples problemas
+│   ├── problem.png              # Grafico generado
+│   └── problem.pdf              # Reporte PDF generado
+├── src/
+│   ├── __init__.py                # Exports publicos
+│   ├── parser/
+│   │   ├── __init__.py
+│   │   ├── lp_parser.py         # Parser formato propio
+│   │   ├── cplex_parser.py    # Parser CPLEX/LP
+│   │   └── multi_parser.py   # Parser multi-problema
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── problem.py        # LinearProblem
+│   │   ├── constraint.py     # LinearConstraint
+│   │   ├── bound.py          # VariableBound
+│   │   ├── solution.py       # Solution
+│   │   └── exceptions.py   # Excepciones custom
+│   ├── matrix/
+│   │   ├── __init__.py
+│   │   ├── builder.py        # Constructor Polars
+│   │   └── matrix.py        # Tipos PolarsLP
+│   ├── solver/
+│   │   ├── __init__.py
+│   │   ├── solver.py         # SolverLP
+│   │   └── multi_solver.py  # MultiSolver
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── validation.py    # Validacion de entrada
+│   │   ├── exporter.py     # Exportacion LP
+│   │   └── logging.py      # Utilidades de registro
+│   ├── visualization/
+│   │   ├── __init__.py
+│   │   └── visualization.py # Graficos 2D
+│   └── analysis/
+│       ├── __init__.py
+│       ├── analysis.py       # Reporte single
+│       └── multi_analysis.py  # Reporte multi
+└── legacy/                      # Contenido legacy
+    ├── Simplex.py
+    └── Opinion.md
+```
 
-# restricciones
-x <= 4
-2y <= 12
-3x + 2y = 18
+---
 
-# bounds
+## 7. Descripcion Tecnica de Modulos
+
+### 7.1 Modulo Principal (main.py)
+
+**Ubicacion**: main.py
+
+**Proposito**: Punto de entrada de la aplicacion CLI que gestiona los argumentos de linea de comandos y coordina la ejecucion en modo single o multi-problema.
+
+**Funciones**:
+
+| Funcion | Firma | Descripcion |
+|---------|-------|-------------|
+| main | main(argv: list[str] \| None = None) -> None | Funcion principal que parsea argumentos y ejecuta el flujo apropiado |
+| _run_multi | _run_multi(text: str, path: Path, visualize: bool, pdf: bool, times: bool, verbose: bool) -> None | Ejecuta el modo multi-problema |
+| _run_single | _run_single(text: str, path: Path, visualize: bool, pdf: bool, times: bool, verbose: bool) -> None | Ejecuta el modo single-problema |
+
+### 7.2 Modulo de Parsing (src/parser/)
+
+#### 7.2.1 Parser LP Individual (lp_parser.py)
+
+**Ubicacion**: src/parser/lp_parser.py
+
+**Proposito**: Parsea problemas de programacion lineal definidos en texto plano a objetos LinearProblem.
+
+**Clase Principal**: LPParser
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| txt | str | Texto con la definicion del problema LP |
+| bounds | dict[str, VariableBound] | Diccionario de limites de variables |
+
+**Metodos**:
+
+| Metodo | Firma | Complejidad | Descripcion |
+|--------|-------|-------------|-------------|
+| parse | parse() -> LinearProblem | O(n×m) | Parsea el texto y retorna el problema |
+| _parse_objective | _parse_objective(line: str) -> tuple[str, dict[str, float]] | O(m) | Parsea la funcion objetivo |
+| _parse_constraint | _parse_constraint(line: str) -> LinearConstraint | O(m) | Parsea una restriccion |
+| _parse_linear_expression | _parse_linear_expression(expr: str) -> dict[str, float] | O(m) | Parsea expresion lineal |
+| _is_bound | _is_bound(line: str) -> bool | O(1) | Verifica si es un bound |
+| _parse_bound | _parse_bound(line: str) -> None | O(1) | Parsea un bound |
+| _extract_variables | _extract_variables(...) -> list[str] | O(n×m) | Extrae nombres de variables |
+
+**Excepciones**: LPParseError para formato invalido
+
+#### 7.2.2 Parser CPLEX/LP (cplex_parser.py)
+
+**Ubicacion**: src/parser/cplex_parser.py
+
+**Proposito**: Parsea problemas en formato LP estandar de CPLEX.
+
+**Clase Principal**: CPLEXParser
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| parse | parse() -> LinearProblem | Parsea archivo formato CPLEX/LP |
+| _parse_section | _parse_section(lines: list[str], section: str) -> dict | Parsea una seccion del archivo |
+| _normalize_sense | _normalize_sense(sense: str) -> str | Normaliza el sentido de optimizacion |
+
+**Secciones Soportadas**:
+
+| Seccion | Descripcion |
+|--------|-------------|
+| Objective | Funcion objetivo |
+| Constraints | Restricciones |
+| Bounds | Limites de variables |
+| General | Constraints generale |
+
+#### 7.2.3 Parser Multi-Problema (multi_parser.py)
+
+**Ubicacion**: src/parser/multi_parser.py
+
+**Proposito**: Parsea multiples problemas de LP desde un unico archivo usando delimitadores.
+
+**Clase Principal**: MultiLPParser
+
+**Constantes**:
+
+```
+DELIMITERS = ['---', '===', '___']
+```
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| parse_all | parse_all() -> List[LinearProblem] | Parsea todos los problemas |
+| _split_by_delimiter | _split_by_delimiter(txt: str) -> List[str] | Divide el texto usando delimitadores |
+| count_problems | count_problems(txt: str) -> int | Cuenta problemas sin parsear |
+
+### 7.3 Modulo Core (src/core/)
+
+#### 7.3.1 Modelo de Problema (problem.py)
+
+**Ubicacion**: src/core/problem.py
+
+**Clase Principal**: LinearProblem (dataclass)
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| objective | dict[str, float] | Coeficientes de la funcion objetivo |
+| sense | str | Direccion de optimizacion ("max" o "min") |
+| constraints | list[LinearConstraint] | Lista de restricciones lineales |
+| variables | list[str] | Lista de nombres de variables |
+| bounds | dict[str, VariableBound] | Limites de cada variable |
+| name | str | Nombre opcional del problema |
+
+#### 7.3.2 Restricciones (constraint.py)
+
+**Ubicacion**: src/core/constraint.py
+
+**Clase Principal**: LinearConstraint (dataclass)
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| coefficients | dict[str, float] | Coeficientes de las variables |
+| rhs | float | Lado derecho de la restriccion |
+| sense | str | Tipo de restriccion ("<=", ">=", "=") |
+
+#### 7.3.3 Limites de Variables (bound.py)
+
+**Ubicacion**: src/core/bound.py
+
+**Clase Principal**: VariableBound (dataclass)
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| variable | str | Nombre de la variable |
+| lower | float \| None | Limite inferior |
+| upper | float \| None | Limite superior |
+
+#### 7.3.4 Solucion (solution.py)
+
+**Ubicacion**: src/core/solution.py
+
+**Clase Principal**: Solution (dataclass)
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| status | str | Estado de la solucion ("OPTIMAL", "INFEASIBLE", "UNBOUNDED") |
+| objective_value | float \| None | Valor optimo de la funcion objetivo |
+| variables | dict[str, float] | Valores de las variables en la solucion |
+| dual_values | dict[str, float] | Valores duales (precios sombra) |
+| reduced_costs | dict[str, float] | Costos reducidos |
+| iterations | int | Numero de iteraciones del solver |
+| nodes | int | Numero de nodos explorados |
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| is_optimal | is_optimal() -> bool | Verifica si el estado es OPTIMAL |
+| is_infeasible | is_infeasible() -> bool | Verifica si el estado es INFEASIBLE |
+| is_unbounded | is_unbounded() -> bool | Verifica si el estado es UNBOUNDED |
+
+#### 7.3.5 Excepciones (exceptions.py)
+
+**Ubicacion**: src/core/exceptions.py
+
+**Excepciones Definidas**:
+
+| Excepcion | Descripcion |
+|-----------|-------------|
+| LPError | Excepcion base para errores de PL |
+| LPParseError | Error al parsear un problema |
+| LPValidationError | Error de validacion |
+| LPSolverError | Error del solver |
+| LPFormatError | Error de formato |
+
+### 7.4 Modulo Matrix (src/matrix/)
+
+#### 7.4.1 Constructor de Matrices (builder.py)
+
+**Ubicacion**: src/matrix/builder.py
+
+**Proposito**: Construye estructuras de datos Polars (DataFrames) para representar el problema LP.
+
+**Clase Principal**: LPBuilder
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| build | build() -> PolarsLP | Construye el objeto PolarsLP con DataFrames |
+| _build_objective | _build_objective() -> pl.DataFrame | Construye DataFrame objetivo |
+| _build_constraints | _build_constraints() -> pl.DataFrame | Construye DataFrame restricciones |
+| _build_coefficients | _build_coefficients() -> pl.DataFrame | Construye matriz de coeficientes |
+| _build_bounds | _build_bounds() -> pl.DataFrame | Construye DataFrame limites |
+
+#### 7.4.2 Tipos de Matrices (matrix.py)
+
+**Ubicacion**: src/matrix/matrix.py
+
+**Clase Principal**: PolarsLP (dataclass)
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| objective | pl.DataFrame | DataFrame con coeficientes objetivo |
+| constraints | pl.DataFrame | DataFrame con restricciones |
+| coefficients | pl.DataFrame | DataFrame con matriz de coeficientes |
+| bounds | pl.DataFrame | DataFrame con limites de variables |
+| sense | str | Sentido de optimizacion |
+
+### 7.5 Modulo Solver (src/solver/)
+
+#### 7.5.1 Solver Gurobi (solver.py)
+
+**Ubicacion**: src/solver/solver.py
+
+**Proposito**: Resuelve problemas LP utilizando el optimizador Gurobi.
+
+**Clase Principal**: SolverLP
+
+**Atributos**:
+
+| Atributo | Tipo |_descripcion |
+|----------|------|-------------|
+| lp | PolarsLP | Estructura PolarsLP con el problema |
+| config | SolverConfig | Configuracion del solver |
+
+**Metodos**:
+
+| Metodo | Firma | Complejidad | Descripcion |
+|--------|-------|-------------|-------------|
+| solve | solve() -> Solution | O(n³) tipico | Resuelve el problema y retorna solucion |
+| _build_model | _build_model(model: gp.Model) -> None | O(m×n) | Construye el modelo Gurobi |
+| _extract_solution | _extract_solution(model: gp.Model) -> Solution | O(n) | Extrae la solucion del modelo |
+| _compute_iis | _compute_iis(model: gp.Model) -> list[str] | O(n) | Calcula conjunto infactible irreducible |
+
+**Estados de Solucion**:
+
+| Estado | Descripcion |
+|--------|-------------|
+| OPTIMAL | Solucion optima encontrada |
+| INFEASIBLE | El problema no tiene region factible |
+| UNBOUNDED | La funcion objetivo puede crecer sin limite |
+| OPTIMAL + IIS | Solucion optima con diagnostico IIS |
+| STATUS_* | Otro estado de Gurobi |
+
+#### 7.5.2 Solver Multi-Problema (multi_solver.py)
+
+**Ubicacion**: src/solver/multi_solver.py
+
+**Clases Principales**:
+
+| Clase | Descripcion |
+|-------|-------------|
+| ProblemResult | Dataclass para resultado de un problema |
+| MultiSolverResult | Dataclass para resultados multiples |
+| MultiSolver | Solver para multiples problemas |
+
+**Metodos de MultiSolver**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| solve_all | solve_all(problems: List[LinearProblem]) -> MultiSolverResult | Resuelve todos los problemas |
+| _solve_single | _solve_single(problem: LinearProblem, index: int) -> ProblemResult | Resuelve un problema individual |
+| solve_from_text | solve_from_text(text: str) -> MultiSolverResult | Parsea y resuelve desde texto |
+
+#### 7.5.3 Configuracion del Solver (solver.py - SolverConfig)
+
+**Ubicacion**: src/solver/solver.py
+
+**Clase Principal**: SolverConfig (dataclass)
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion | Default |
+|----------|------|-------------|---------|
+| verbose | bool | Salida detallada | False |
+| time_limit | float | Limite de tiempo (segundos) | inf |
+| threads | int | Numero de hilos | 0 (automatico) |
+| method | int | Metodo de optimizacion | -1 (automatico) |
+| mip_gap | float | Tolerancia de gap MIP | 1e-4 |
+| presolve | int | Nivel de presolve | 2 (automatico) |
+| heuristics | float | Porcentaje de heuristicas | 0.05 |
+
+**Constantes de Metodos**:
+
+| Constante | Valor | Descripcion |
+|-----------|-------|-------------|
+| METHOD_AUTO | -1 | Automtico |
+| METHOD_PRIMAL | 0 | Simplex primal |
+| METHOD_DUAL | 1 | Simplex dual |
+| METHOD_BARRIER | 2 | Metodo de barrera |
+| METHOD_CONCURRENT | 3 | Metodo concurrente |
+
+### 7.6 Modulo de Utilidades (src/utils/)
+
+#### 7.6.1 Validacion (validation.py)
+
+**Ubicacion**: src/utils/validation.py
+
+**Proposito**: Valida problemas de programacion lineal antes deresolverlos.
+
+**Clase Principal**: LPValidator
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| validate | validate(problem: LinearProblem) -> ValidationResult | Valida un problema |
+| _validate_objective | _validate_objective(problem: LinearProblem) -> list[str] | Valida funcion objetivo |
+| _validate_constraints | _validate_constraints(problem: LinearProblem) -> list[str] | Valida restricciones |
+| _validate_bounds | _validate_bounds(problem: LinearProblem) -> list[str] | Valida limites |
+
+**Clase de Resultado**: ValidationResult
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| is_valid | bool | Indica si el problema es valido |
+| errors | list[str] | Lista de errores encontrados |
+| warnings | list[str] | Lista de advertencias |
+
+#### 7.6.2 Exportacion (exporter.py)
+
+**Ubicacion**: src/utils/exporter.py
+
+**Proposito**: Exporta problemas al formato LP estandar de CPLEX.
+
+**Clase Principal**: LPExporter
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| export | export(problem: LinearProblem) -> str | Exporta problema a formato LP |
+| _format_objective | _format_objective(obj: dict, sense: str) -> str | Formatea funcion objetivo |
+| _format_constraints | _format_constraints(constraints: list) -> str | Formatea restricciones |
+| _format_bounds | _format_bounds(bounds: dict) -> str | Formatea limites |
+
+#### 7.6.3 Registro (logging.py)
+
+**Ubicacion**: src/utils/logging.py
+
+**Proposito**: Proporciona utilidades de registro y medicion de tiempos.
+
+**Clase Principal**: ExecutionTimes
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| parse_time | float | Tiempo de parseo |
+| build_time | float | Tiempo de construccion |
+| solve_time | float | Tiempo de resolucion |
+| visualize_time | float | Tiempo de visualizacion |
+| pdf_time | float | Tiempo de generacion PDF |
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| total | total() -> float | Tiempo total de ejecucion |
+| summary | summary() -> str | Resumen formateado |
+
+### 7.7 Modulo de Visualizacion (src/visualization/)
+
+**Ubicacion**: src/visualization/visualization.py
+
+**Proposito**: Genera representaciones graficas de la region factible para problemas de dos variables.
+
+**Clase Principal**: LinearVisualization
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| problem | LinearProblem | El problema de programacion lineal |
+| solution | Solution \| None | La solucion optima |
+| var_x | str | Nombre de la primera variable |
+| var_y | str | Nombre de la segunda variable |
+
+**Metodos**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| find_intersection | find_intersection(c1, c2) -> Optional[tuple[float, float]] | Encuentra interseccion entre dos restricciones |
+| is_point_feasible | is_point_feasible(x, y, constraints) -> bool | Verifica factibilidad de un punto |
+| get_constraint_line_x | get_constraint_line_x(c, x_range) -> tuple[np.ndarray, np.ndarray] | Obtiene puntos para graficar restriccion |
+| find_feasible_vertices | find_feasible_vertices() -> list[tuple[float, float]] | Encuentra vertices de la region factible |
+| plot | plot(save_path: Optional[str] = None, show: bool = True) -> None | Genera la visualizacion completa |
+| _calculate_plot_range | _calculate_plot_range() -> tuple[tuple[float, float], tuple[float, float]] | Calcula rango del grafico |
+| _plot_constraints | _plot_constraints(ax, x_range) -> None | Grafica las rectas de restricciones |
+| _plot_feasible_region | _plot_feasible_region(ax, x_range, y_range) -> None | Grafica la region factible |
+| _plot_intersections | _plot_intersections(ax) -> None | Grafica puntos de interseccion |
+| _plot_solution | _plot_solution(ax) -> None | Grafica la solucion optima |
+| _plot_objective_contour | _plot_objective_contour(ax, opt_x, opt_y) -> None | Grafica lineas de nivel |
+
+### 7.8 Modulo de Analisis (src/analysis/)
+
+#### 7.8.1 Analisis Single (analysis.py)
+
+**Ubicacion**: src/analysis/analysis.py
+
+**Proposito**: Genera reportes academicos profesionales en formato PDF.
+
+**Clases**:
+
+| Clase | Descripcion |
+|-------|-------------|
+| ReporteAcademico | Clase base FPDF para reportes |
+| LPAnalysis | Generador de reportes PDF para un problema |
+
+**Constantes de Estilo**:
+
+| Constante | Valor | Descripcion |
+|-----------|-------|-------------|
+| PAGE_WIDTH | 215.9 | mm (carta) |
+| PAGE_HEIGHT | 279.4 | mm |
+| MARGIN | 20 | mm |
+| COLOR_PRIMARY | (0, 51, 102) | Azul oscuro |
+| COLOR_SUCCESS | (0, 128, 0) | Verde |
+| COLOR_ERROR | (200, 0, 0) | Rojo |
+
+**Metodos de LPAnalysis**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| generate | generate(problem: LinearProblem, solution: Solution) -> None | Genera el PDF completo |
+| _agregar_portada | _agregar_portada() -> None | Agrega portada |
+| _agregar_resumen | _agregar_resumen() -> None | Agrega resumen ejecutivo |
+| _agregar_datos | _agregar_datos() -> None | Agrega datos del problema |
+| _agregar_solucion | _agregar_solucion() -> None | Agrega solucion optima |
+| _agregar_holgura | _agregar_holgura() -> None | Agrega analisis de holgura |
+| _agregar_sensibilidad | _agregar_sensibilidad() -> None | Agrega analisis de sensibilidad |
+| _agregar_grafico | _agregar_grafico() -> None | Agrega grafico si aplica |
+
+#### 7.8.2 Analisis Multi-Problema (multi_analysis.py)
+
+**Ubicacion**: src/analysis/multi_analysis.py
+
+**Proposito**: Genera reportes academicos para multiples problemas.
+
+**Clases**:
+
+| Clase | Descripcion |
+|-------|-------------|
+| ReporteAcademicoMulti | Clase base FPDF para reportes multi-problema |
+| MultiLPAnalysis | Generador de reportes PDF para multiples problemas |
+
+**Metodos de MultiLPAnalysis**:
+
+| Metodo | Firma | Descripcion |
+|--------|-------|-------------|
+| generate | generate(result: MultiSolverResult) -> None | Genera el PDF multi-problema |
+| _agregar_portada | _agregar_portada(result: MultiSolverResult) -> None | Agrega portada con estadisticas |
+| _agregar_resumen | _agregar_resumen(result: MultiSolverResult) -> None | Agrega tabla de resultados |
+| _agregar_problema | _agregar_problema(result: ProblemResult) -> None | Agrega pagina por problema |
+| _calcular_holguras | _calcular_holguras(constraints, solution) -> dict | Calcula holguras y precios sombra |
+| _build_grafico | _build_grafico(problem, solution) -> None | Genera grafico temporal |
+
+---
+
+## 8. Clases y Funciones Principales
+
+### LinearProblem
+
+**Ubicacion**: src/core/problem.py:7
+
+**Descripcion**: Representa la definicion completa de un problema de programacion lineal.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| objective | dict[str, float] | Coeficientes de la funcion objetivo |
+| sense | str | Direccion de optimizacion ("max" o "min") |
+| constraints | list[LinearConstraint] | Lista de restricciones lineales |
+| variables | list[str] | Lista de nombres de variables |
+| bounds | dict[str, VariableBound] | Limites de cada variable |
+| name | str | Nombre opcional del problema |
+
+### LinearConstraint
+
+**Ubicacion**: src/core/constraint.py:6
+
+**Descripcion**: Representa una ecuacion o inecuacion lineal.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| coefficients | dict[str, float] | Coeficientes de las variables |
+| rhs | float | Lado derecho de la restriccion |
+| sense | str | Tipo de restriccion ("<=", ">=", "=") |
+
+### VariableBound
+
+**Ubicacion**: src/core/bound.py:5
+
+**Descripcion**: Define los limites inferior y superior de una variable.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| variable | str | Nombre de la variable |
+| lower | float \| None | Limite inferior |
+| upper | float \| None | Limite superior |
+
+### Solution
+
+**Ubicacion**: src/core/solution.py:5
+
+**Descripcion**: Contiene el resultado de resolver un problema.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| status | str | Estado de la optimizacion |
+| objective_value | float \| None | Valor optimo de la funcion objetivo |
+| variables | dict[str, float] | Valores de las variables |
+| dual_values | dict[str, float] | Valores duales (precios sombra) |
+| reduced_costs | dict[str, float] | Costos reducidos |
+| iterations | int | Numero de iteraciones |
+| nodes | int | Numero de nodos |
+
+### SolverConfig
+
+**Ubicacion**: src/solver/solver.py:50
+
+**Descripcion**: Permite configurar el comportamiento del optimizador Gurobi.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion | Default |
+|----------|------|-------------|---------|
+| verbose | bool | Salida detallada | False |
+| time_limit | float | Limite de tiempo | inf |
+| threads | int | Numero de hilos | 0 |
+| method | int | Metodo de optimizacion | -1 |
+| mip_gap | float | Tolerancia de gap | 1e-4 |
+| presolve | int | Nivel de presolve | 2 |
+| heuristics | float | Porcentaje de heuristicas | 0.05 |
+
+### ValidationResult
+
+**Ubicacion**: src/utils/validation.py:15
+
+**Descripcion**: Contiene el resultado de validar un problema.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| is_valid | bool | Indica si el problema es valido |
+| errors | list[str] | Lista de errores |
+| warnings | list[str] | Lista de advertencias |
+
+### ExecutionTimes
+
+**Ubicacion**: src/utils/logging.py:10
+
+**Descripcion**: Almacena las metricas de tiempo de las diferentes etapas.
+
+**Atributos**:
+
+| Atributo | Tipo | Descripcion |
+|----------|------|-------------|
+| parse_time | float | Tiempo de parseo |
+| build_time | float | Tiempo de construccion |
+| solve_time | float | Tiempo de resolucion |
+| visualize_time | float | Tiempo de visualizacion |
+| pdf_time | float | Tiempo de generacion PDF |
+
+---
+
+## 9. Analisis de Sensibilidad
+
+El sistema proporciona analisis de sensibilidad completo para ayudar a interpretar los resultados.
+
+### Precios Sombra
+
+**Descripcion**: Los precios sombra (tambien conocidos como valores duales) representan el cambio marginal en el valor optimo de la funcion objetivo cuando se relaja una restriccion por una unidad.
+
+**Interpretacion**:
+- Precio sombra positivo: mejorar el limite de esa restriccion beneficiaria el objetivo
+- Precio sombra cero: la restriccion no esta limitando el objetivo
+- Precio sombra negativo: aumentar el limite perjudica el objetivo
+
+### Costos Reducidos
+
+**Descripcion**: Los costos reducidos indican cuanto mejoraria el objetivo si una variable que actualmente esta en su limite inferior pudiera incrementarse.
+
+**Interpretacion**:
+- Costo reducido de cero: la variable ya esta en su valor optimo
+- Costo reducido positivo: la variable necesita aumentar para mejorar el objetivo
+- Costo reducido negativo: la variable necesita disminuir para mejorar el objetivo
+
+### Holgura
+
+**Descripcion**: La holgura (slack) representa la diferencia entre el lado derecho de una restriccion y el valor de la expresion evaluada en el punto optimo.
+
+**Interpretacion**:
+- Holgura de cero: la restriccion esta activa (limitante)
+- Holgura positiva: hay recursos no utilizados
+- Holgura negativa: la restriccion esta violada (no deberia ocurrir en solucion valida)
+
+---
+
+## 10. Diagnostico de Infactibilidad
+
+Cuando un problema no tiene solucion factible, el sistema puede identificar el Conjunto Infactible Irreducible (IIS).
+
+### Que es IIS?
+
+El IIS es el subconjunto mas pequeno de restricciones que sigue siendo infactible. Eliminar cualquier restriccion del IIS haria el problema factible.
+
+### Como se Utiliza
+
+El diagnostico IIS se activa automaticamente cuando el problema es infactible. La salida incluye:
+
+```
+Estado: INFEASIBLE
+Conjunto Infactible Irreducible (IIS):
+- Restriccion 1: 2x + 3y <= 120
+- Restriccion 2: x >= 50
+- Bound: x <= 30
+```
+
+### Interpretacion
+
+Las restriccioneslisted en el IIS estan en conflicto directo. Para hacer el problema factible, debe relajarse al menos una de estas restricciones.
+
+---
+
+## 11. Configuracion del Solucionador
+
+El optimizador Gurobi puede configurarse para ajustar su comportamiento segun las necesidades del problema.
+
+### Parametros Principales
+
+| Parametro | Descripcion | Valores Posibles |
+|-----------|-------------|----------------|
+| verbose | Controla la cantidad de salida impresa | True, False |
+| time_limit | Limite maximo de tiempo de ejecucion | float (segundos) |
+| threads | Numero de hilos de CPU a utilizar | 0=automatico, 1=single, N=hilos |
+| method | Algoritmo de optimizacion | -1=auto, 0=primal, 1=dual, 2=barrier |
+| mip_gap | Tolerancia de gap para problemas enteros | float (0.0 a 1.0) |
+| presolve | Nivel de presolve | -1=auto, 0=off, 1=conservative, 2=aggressive |
+| heuristics | Porcentaje de tiempo en heuristicas | float (0.0 a 1.0) |
+
+### Metodos de Optimizacion
+
+| Metodo | Constante | Descripcion |
+|--------|-----------|-------------|
+| Automatico | -1 | Gurobi selecciona el mejor metodo |
+| Simplex Primal | 0 | Metodo simplex primal |
+| Simplex Dual | 1 | Metodo simplex dual |
+| Barrera | 2 | Metodo de barrera interior |
+| Concurrent | 3 | Multiple metodos en paralelo |
+
+**Recomendacion**: El metodo automatico es recomendado para la mayoria de los casos ya que Gurobi selecciona la mejor opcion basandose en la estructura del problema.
+
+---
+
+## 12. Informe PDF
+
+El sistema genera informes academicos profesionales que contienen analisis completo de cada problema resuelto.
+
+### Contenido del Informe Single
+
+El informe para un problema individual contiene las siguientes secciones principales:
+
+1. **Portada**: Informacion general del problema
+   - Tipo (maximizacion o minimizacion)
+   - Numero de variables y restricciones
+   - Fecha de generacion
+
+2. **Resumen Ejecutivo**: Estado de la optimizacion
+   - Valor optimo encontrado
+   - Resumen de tiempos de ejecucion
+
+3. **Datos del Problema**: Definicion del problema
+   - Variables definidas
+   - Funcion objetivo
+   - Tabla completa de restricciones
+
+4. **Solucion Optima**: Resultados
+   - Valores de todas las variables
+   - Analisis de costos reducidos
+
+5. **Analisis de Holgura y Precios Sombra**: Analisis de factibilidad
+   - Holgura de cada restriccion
+   - Precio sombra correspondiente
+   - Indicacion de restricciones activas
+
+6. **Analisis de Sensibilidad**: Interpretacion de resultados
+   - Interpretacion de precios sombra
+   - Recomendaciones para analisis adicional
+
+7. ** Grafico**: Representacion visual (para 2 variables)
+   - Region factible
+   - Restricciones
+   - Vertices
+   - Punto optimo
+
+### Informe Multi-Problema
+
+Cuando se resuelven multiples problemas, el PDF contiene：
+
+1. **Portada con Estadisticas**: Resumen general
+   - Numero de problemas resueltos
+   - Estadisticas globales
+
+2. **Resumen Ejecutivo**: Tabla de resultados
+   - Estado de cada problema
+   - Valor optimo de cada uno
+
+3. **Pagina por Problema**: Todas las secciones mencionadas
+   - Con grafico individual si aplica
+
+4. **Resumen de Tiempos**: Metricas de procesamiento
+   - Tiempos totales y por problema
+
+---
+
+## 13. Formato CPLEX/LP
+
+El sistema puede exportar problemas al formato LP estandar que es compatible con multiples optimizadores comerciales y de codigo abierto.
+
+### Ejemplo de Exportacion
+
+Entrada del sistema:
+
+```
+max: 3x + 2y
+x + y <= 10
+2x + y <= 15
 x >= 0
 y >= 0
 ```
 
-### 7.6 Notas Adicionales
+Salida en formato CPLEX/LP:
 
-- Las líneas que empiezan con `#` son comentarios
-- Los espacios en blanco son ignorados
-- Las variables pueden tener nombres alfanuméricos: `x`, `y`, `var1`, `x1_2`
-- Los coeficientes pueden ser positivos o negativos, enteros o decimales
-- Delimitadores reconocidos: `---`, `===`, `___`
+```
+\Problem Name: LP
+\Objective Sense: Maximize
 
----
+\Columns: 2
+x y
 
-## 8. Módulo de Visualización
+\Rows: 2
+R1 R2
 
-### 8.1 Descripción General
+\Column Names:
+x y
 
-El módulo de visualización (`LinearVisualization`) proporciona herramientas completas para graficar problemas de programación lineal en 2D. Las características principales incluyen:
+\Row Names:
+R1 R2
 
-- **Plano Cartesiano Completo**: Soporta valores negativos en ambos ejes
-- **Región Factible**: Identificación y graficación del polígono factible
-- **Restricciones como Rectas**: Visualización de cada restricción como línea
-- **Puntos de Intersección**: Marcado de intersecciones entre restricciones
-- **Solución Óptima**: Resaltado del punto óptimo con estrella
-- **Líneas de Nivel**: Graficación de la función objetivo
+\Objective
+3 2
 
-### 8.2 Algoritmo de Cálculo de Rango
+\R1
+1 1
+<= 10
 
-El método [`_calculate_plot_range`](src/visualization/visualization.py:262) determina automáticamente el rango del gráfico:
+\R2
+2 1
+<= 15
 
-1. **Inicialización**: Comienza con rango base de [-10, 10]
-2. **Expansión por solución**: Si existe solución óptima, expande el rango basándose en sus valores
-3. **Expansión por restricciones**: Analiza cada restricción para encontrar intersecciones con ejes
-4. **Mínimo garantizado**: Asegura un rango mínimo de 5 unidades
+\Bounds
+x L 0
+y L 0
+
+\End
+```
+
+### Uso
+
+Para exportar un problema:
 
 ```python
-def _calculate_plot_range(self) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Calcula el rango apropiado para el gráfico, permitiendo valores negativos."""
-    x_min, x_max = -10, 10
-    y_min, y_max = -10, 10
-    
-    # Usar la solución óptima para determinar el centro del gráfico
-    if self.solution:
-        sol_x = self.solution.variables.get(self.var_x, 0)
-        sol_y = self.solution.variables.get(self.var_y, 0)
-        # Expandir según la solución...
-    
-    return (x_min, x_max), (y_min, y_max)
+from src.parser import LPParser
+from src.utils.exporter import LPExporter
+
+problem = LPParser(problem_text).parse()
+lp_format = LPExporter(problem).export()
+print(lp_format)
 ```
-
-### 8.3 Algoritmo de Región Factible
-
-El método [`find_feasible_vertices`](src/visualization/visualization.py:147) encuentra los vértices de la región factible:
-
-1. **Recopilación de restricciones**: Incluye restricciones originales y de no negatividad
-2. **Intersecciones pairwise**: Calcula intersección entre cada par de restricciones
-3. **Verificación de factibilidad**: Descarta puntos que violan alguna restricción
-4. **Intersecciones con ejes**: Considera puntos donde las restricciones cruzan x=0 o y=0
-5. **Ordenamiento**: Ordena vértices en sentido antihorario para graficación
-
-### 8.4 Salida Gráfica
-
-El método [`plot`](src/visualization/visualization.py:215) genera:
-
-- Gráfico en formato PNG con resolución 150 DPI
-- Leyenda con todas las restricciones
-- Ejes cartesianos completos con líneas en x=0 e y=0
-- Región factible sombreada en verde
-- Puntos de intersección marcados en rojo
-- Solución óptima marcada con estrella azul
 
 ---
 
-## 9. Módulo de Análisis Multi-Problema
+## 14. Validacion de Problemas
 
-### 9.1 Estructura del Reporte PDF
+Antes de resolver un problema, el sistema puede validar su formulacion para detectar errores comunes.
 
-El módulo [`MultiLPAnalysis`](src/analysis/multi_analysis.py:82) genera reportes profesionales con la siguiente estructura:
+### Verificaciones Realizadas
 
-1. **Portada**: Título, información del sistema, fecha
-2. **Resumen Ejecutivo**: Estadísticas generales, tabla de resultados
-3. **Páginas Individuales**: Un página por problema con:
-   - Función objetivo
-   - Tabla de restricciones con holguras
-   - Solución óptima
-   - Gráfico de región factible (para 2 variables)
-   - Análisis de tiempos
-4. **Resumen de Tiempos**: Tiempos totales de ejecución
+| Verificacion | Descripcion |
+|-------------|-------------|
+| Objetivo vacio | La funcion objetivo debe tener al menos una variable |
+| Variables indefinidas | Todas las variables usadas deben estar en el objetivo o restricciones |
+| Restricciones invalidas | Las restricciones deben tener coeficientes validos |
+| Bounds inconsistentes | El limite inferior no puede ser mayor que el superior |
+| Division por cero | Los coeficientes no pueden generar division por cero |
 
-### 9.2 Clases de Estilo
+### Uso
 
 ```python
-class ReporteAcademicoMulti(FPDF):
-    """Clase base para reportes multi-problema."""
+from src.parser import LPParser
+from src.utils.validation import LPValidator
+
+problem = LPParser(problem_text).parse()
+result = LPValidator().validate(problem)
+
+if not result.is_valid:
+    print("Errores encontrados:")
+    for error in result.errors:
+        print(f"  - {error}")
     
-    def header(self):
-        """No mostrar header en todas las páginas."""
-        pass
-    
-    def footer(self):
-        """Pie de página completo."""
-        # Información de página, marca de agua, etc.
+if result.warnings:
+    print("Advertencias:")
+    for warning in result.warnings:
+        print(f"  - {warning}")
 ```
 
-### 9.3 Generación de Gráficos en PDF
-
-El método [`_build_grafico`](src/analysis/multi_analysis.py:560) integra visualizaciones en el PDF:
-
-1. Genera el gráfico temporalmente usando `LinearVisualization`
-2. Convierte la imagen a formato soportado por fpdf2
-3. Inserta la imagen en el PDF con posicionamiento adecuado
-4. Limpia archivos temporales
-
-### 9.4 Análisis de Holguras
-
-El método [`_calcular_holguras`](src/analysis/multi_analysis.py:620) calcula:
-
-- **Holgura (Slack)**: Diferencia entre el lado izquierdo y derecho de restricciones `<=`
-- **Exceso (Surplus)**: Diferencia para restricciones `>=`
-- **Restricciones Activas**: Aquellas con holgura cero
-
 ---
 
-## 10. Algoritmos y Complejidad
+## 15. Licencia
 
-### 10.1 Método Simplex
-
-El sistema utiliza el método Simplex implementado en Gurobi, que incluye:
-
-#### Simplex Revisado
-- Optimización del método simplex original
-- Mantiene solo las columnas relevantes en cada iteración
-- Complejidad: O(n³) en el caso promedio
-
-#### Simplex de Dos Fases
-- Fase I: Encuentra solución factible básica
-- Fase II: Optimiza desde la solución factible
-
-#### Método de la M Grande
-- Penaliza variables artificiales en la función objetivo
-- Parameter M suficientemente grande
-
-### 10.2 Complejidad Computacional
-
-| Operación | Complejidad | Descripción |
-|-----------|-------------|-------------|
-| Parsing | O(n×m) | n=líneas del archivo, m=variables |
-| Construcción LP | O(m×r) | m=variables, r=restricciones |
-| Optimización Gurobi | O(n³) promedio | Depende del tamaño del problema |
-| Visualización | O(r² + v) | r=restricciones, v=vértices |
-| Generación PDF | O(k) | k=número de problemas |
-
-### 10.3 Estructuras de Datos
-
-| Estructura | Uso | Ventajas |
-|------------|-----|----------|
-| Polars DataFrame | Matrices sparse | Eficiente en memoria, operaciones vectorizadas |
-| Dict[str, float] | Coeficientes | Búsqueda O(1) por variable |
-| List[LinearConstraint] | Restricciones | Iteración secuencial eficiente |
-| Polygon (matplotlib) | Región factible | Rendering optimizado |
-
-### 10.4 Patrones de Diseño Aplicados
-
-| Patrón | Módulo | Beneficio |
-|--------|--------|-----------|
-| Data Class | core/* | Inmutabilidad, comparabilidad |
-| Factory | matrix/builder.py | Creación de objetos PolarsLP |
-| Strategy | main.py | Selección de algoritmos de resolución |
-| Template Method | analysis/* | Estructura de reportes definida |
-
----
-
-## 11. Referencias Técnicas
-
-### 11.1 Teoría de Programación Lineal
-
-- **George Dantzig** (1947): Inventor del método Simplex
-- **Referencia**: Dantzig, G. B. & Thapa, M. N. (1997). *Linear Programming*. Springer.
-
-### 11.2 Método Simplex
-
-- **Variantes**: Simplex primal, Simplex dual, Simplex revisado
-- **Complejidad**: Polinomial en promedio, exponencial en peor caso
-- **Avances**: Método del elipsoide (Khachiyan), punto interior (Karmarkar)
-
-### 11.3 Dualidad en Programación Lineal
-
-- **Teorema de dualidad fuerte**: Valores óptimos de primal y dual son iguales
-- **Teorema de dualidad débil**: Cualquier solución factible del dual acota el primal
-- **Precios sombra**: Variables duales representan el valor marginal de recursos
-
-### 11.4 Optimización con Gurobi
-
-- **Documentación**: [Gurobi Optimizer Reference Manual](https://www.gurobi.com/documentation/)
-- **API Python**: [Gurobi Python API](https://www.gurobi.com/documentation/9.0/quickstart_mac/py_quickstart.html)
-- **Algoritmos**: Simplex, barrera, recocido simulado, métodos híbridos
-
-### 11.5 Análisis de Sensibilidad
-
-- **Holguras (Slack)**: Recursos no utilizados en restricciones `<=`
-- **Precios Sombra**: Valor marginal de recursos adicionales
-- **Rango de optimalidad**: Rango donde la solución permanece óptima
-- **Rango de factibilidad**: Rango donde la solución permanece factible
-
-### 11.6 Funciones Objetivo Múltiples
-
-- **Weighted Sum Method**: Agregación de objetivos con ponderaciones
-- **ε-constraint Method**: Optimiza un objetivo sujetando otros
-- **Pareto Optimality**: Soluciones no dominadas
-
-### 11.7 Bibliotecas Relacionadas
-
-| Biblioteca | Propósito | Referencia |
-|------------|-----------|------------|
-| Gurobi | Optimización | gurobipy |
-| Polars | DataFrames | polars |
-| Matplotlib | Visualización | matplotlib.org |
-| NumPy | Computación numérica | numpy.org |
-| fpdf2 | PDF | pypi.org/project/fpdf2 |
-
----
-
-## 12. Licencia y Contribuciones
-
-### 12.1 Licencia
-
-Este proyecto está licenciado bajo la **MIT License**.
-
-```
 MIT License
 
 Copyright (c) 2026 Gurobipy-Simplex-General-Solver
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### 12.2 Autores y Contribuidores
+---
 
-| Nombre | Rol | Contacto |
-|--------|-----|-----------|
-| **Oyhs-co** | Desarrollador Principal | oyhsotelo@gmail.com |
+## 16. Version
 
-### 12.3 Contribuciones
+Version actual: 1.0.0
 
-Las contribuciones son bienvenidas. Por favor:
-
-1. **Fork** el repositorio
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-caracteristica`)
-3. Commit tus cambios (`git commit -am 'Agregar nueva característica'`)
-4. Push a la rama (`git push origin feature/nueva-caracteristica`)
-5. Crea un **Pull Request**
-
-### 12.4 Cómo Reportar Issues
-
-Si encuentras algún problema o tienes sugerencias:
-
-1. Verifica que el issue no haya sido reportado anteriormente
-2. Proporciona pasos detallados para reproducir el problema
-3. Incluye información de tu entorno (SO, Python, versiones de dependencias)
-4. Adjunta archivos de prueba si es posible
+Este es un software educacional desarrollado para facilitar el aprendizaje y la practica de programacion lineal.
 
 ---
 
 <div align="center">
 
-## Desarrollado con ❤️ usando Gurobi, Polars, Matplotlib y fpdf2
-
-*Versión del proyecto: 0.1.0*
+**Desarrollado con Python utilizando Gurobi, Polars, Matplotlib y fpdf2**
 
 </div>
