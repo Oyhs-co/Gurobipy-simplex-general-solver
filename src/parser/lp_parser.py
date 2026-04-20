@@ -1,3 +1,7 @@
+"""
+Parser para problemas de programación lineal en formato texto.
+"""
+
 from ..core import LinearProblem, LinearConstraint, VariableBound
 import re
 
@@ -11,35 +15,40 @@ BOUND_LEFT = re.compile(r"(-?\d+\.?\d*)<=([a-zA-Z]\w*)")
 
 
 class LPParser:
-
     """
-    Perse a linear programming problem from a text representation.
+    Parser para problemas de programación lineal desde texto.
+
+    ### atributos:
+    - txt: str - Texto con la definición del problema de PL.
+    - bounds: dict[str, VariableBound] - Diccionario de límites de variables.
     """
 
     def __init__(self, txt: str) -> None:
         """
-        Parses a linear programming problem from a text representation.
+        Inicializa el parser con el texto del problema.
 
-        ### parameters:
-        - txt: str - Text representation of the linear programming problem.
-
-       """
+        Args:
+            txt: str - Texto con la definición del problema de PL.
+        """
         self.txt = txt
         self.bounds: dict[str, VariableBound] = {}
 
     def parse(self) -> LinearProblem:
         """
-        Parses the linear programming problem from the provided text.
-        ### returns:
-        - LinearProblem: An instance of LinearProblem representing
-        the parsed problem.
+        Parsea el problema de PL desde el texto proporcionado.
+
+        Returns:
+            LinearProblem: Instancia representando el problema parseado.
+
+        Raises:
+            ValueError: Si el formato es inválido.
         """
 
         lines = self.txt.strip().splitlines()
         objective_line = lines[0].strip()
 
         if not objective_line:
-            raise ValueError("Objective function is missing")
+            raise ValueError("Falta la función objetivo")
 
         sense, objective_coeffs = self._parse_objective(objective_line)
 
@@ -55,17 +64,16 @@ class LPParser:
             constraint = self._parse_constraint(line.strip())
             constraints.append(constraint)
 
-        # agregar variables que solo aparecen en bounds
         variables = sorted({
             *self._extract_variables(objective_coeffs, constraints),
             *self.bounds.keys()
         })
 
         if not objective_coeffs:
-            raise ValueError("Objective function cannot be empty")
+            raise ValueError("La función objetivo no puede estar vacía")
 
         if not constraints:
-            raise ValueError("At least one constraint is required")
+            raise ValueError("Se requiere al menos una restricción")
 
         return LinearProblem(
             objective=objective_coeffs,
@@ -76,16 +84,16 @@ class LPParser:
         )
 
     def _parse_objective(self, line: str) -> tuple[str, dict[str, float]]:
-
+        """Parsea la función objetivo."""
         parts = line.split(maxsplit=1)
 
         if len(parts) != 2:
-            raise ValueError(f"Invalid objective function: {line}")
+            raise ValueError(f"Función objetivo inválida: {line}")
 
         sense = parts[0].replace(":", "").lower()
 
         if sense not in {"max", "min"}:
-            raise ValueError(f"Invalid optimization direction: {sense}")
+            raise ValueError(f"Dirección de optimización inválida: {sense}")
 
         expr = parts[1]
 
@@ -97,7 +105,7 @@ class LPParser:
         return sense, coefficients
 
     def _parse_constraint(self, line: str) -> LinearConstraint:
-
+        """Parsea una restricción."""
         if "<=" in line:
             lhs, rhs = line.split("<=", 1)
             sense = "<="
@@ -108,14 +116,14 @@ class LPParser:
             lhs, rhs = line.split("=", 1)
             sense = "="
         else:
-            raise ValueError(f"Invalid constraint: {line}")
+            raise ValueError(f"Restricción inválida: {line}")
 
         coefficients = self._parse_linear_expression(lhs.strip())
 
         try:
             rhs_value = float(rhs.strip())
         except ValueError:
-            raise ValueError(f"Invalid RHS value in constraint: {line}")
+            raise ValueError(f"Valor RHS inválido en restricción: {line}")
 
         return LinearConstraint(
             coefficients=coefficients,
@@ -124,10 +132,10 @@ class LPParser:
         )
 
     def _extract_variables(self,
-                           objective: dict[str, float],
-                           constraints: list[LinearConstraint]
-                           ) -> list[str]:
-
+                       objective: dict[str, float],
+                       constraints: list[LinearConstraint]
+                       ) -> list[str]:
+        """Extrae todas las variables del problema."""
         variables: set[str] = set(objective.keys())
 
         for constraint in constraints:
@@ -136,8 +144,9 @@ class LPParser:
         return sorted(variables)
 
     def _parse_linear_expression(self, expr: str) -> dict[str, float]:
+        """Parsea una expresión lineal."""
         if not expr.strip():
-            raise ValueError("Empty linear expression")
+            raise ValueError("Expresión lineal vacía")
 
         expr = expr.replace(" ", "").lstrip("+")
         expr = expr.replace("-", "+-")
@@ -146,7 +155,6 @@ class LPParser:
         coefficients: dict[str, float] = {}
 
         for term in terms:
-
             term = term.strip()
             if not term:
                 continue
@@ -154,8 +162,7 @@ class LPParser:
             match = TERM_PATTERN.fullmatch(term)
 
             if not match:
-                print("DEBUG TERM:", term)
-                raise ValueError(f"Invalid term: {term}")
+                raise ValueError(f"Término inválido: {term}")
 
             coeff_str, var = match.groups()
 
@@ -171,6 +178,7 @@ class LPParser:
         return coefficients
 
     def _is_bound(self, line: str) -> bool:
+        """Verifica si la línea es un bound."""
         return (
             BOUND_SIMPLE.match(line)
             or BOUND_DOUBLE.match(line)
@@ -178,7 +186,7 @@ class LPParser:
         ) is not None
 
     def _parse_bound(self, line: str) -> None:
-
+        """Parsea un bound de variable."""
         free_match = BOUND_FREE.match(line)
 
         if free_match:
@@ -190,7 +198,6 @@ class LPParser:
 
         line = line.replace(" ", "")
 
-        # Caso: x >= 0
         match = BOUND_SIMPLE.match(line)
 
         if match:
@@ -217,7 +224,6 @@ class LPParser:
             self.bounds[var] = bound
             return
 
-        # Caso: 0 <= x <= 10
         match = BOUND_DOUBLE.match(line)
 
         if match:
@@ -232,4 +238,4 @@ class LPParser:
 
             return
 
-        raise ValueError(f"Invalid bound format: {line}")
+        raise ValueError(f"Formato de bound inválido: {line}")

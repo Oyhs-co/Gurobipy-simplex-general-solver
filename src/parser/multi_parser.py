@@ -41,7 +41,7 @@ class MultiLPParser:
             if not section:
                 continue
 
-            # Skip comments at the beginning
+            # Saltar comentarios al inicio
             lines = section.splitlines()
             start_idx = 0
             for j, line in enumerate(lines):
