@@ -154,17 +154,16 @@ class LinearVisualization:
         # Recopilar todas las restricciones
         constraints = self.problem.constraints.copy()
         
-        # Agregar restricciones de no negatividad si no existen
         bounds = self.problem.bounds
-        if self.var_x not in bounds or bounds[self.var_x].lower is None or bounds[self.var_x].lower < 0:
-            # Agregar x >= 0 como restricción
+        x_bound = bounds.get(self.var_x)
+        if x_bound is None or x_bound.lower is None or x_bound.lower < 0:
             constraints.append(LinearConstraint(
                 coefficients={self.var_x: 1},
                 rhs=0,
                 sense=">="
             ))
-        if self.var_y not in bounds or bounds[self.var_y].lower is None or bounds[self.var_y].lower < 0:
-            # Agregar y >= 0 como restricción
+        y_bound = bounds.get(self.var_y)
+        if y_bound is None or y_bound.lower is None or y_bound.lower < 0:
             constraints.append(LinearConstraint(
                 coefficients={self.var_y: 1},
                 rhs=0,
@@ -327,7 +326,8 @@ class LinearVisualization:
         - ax: matplotlib.axes.Axes - Ejes donde graficar.
         - x_range: tuple[float, float] - Rango de x.
         """
-        colors = plt.cm.tab10.colors
+        from matplotlib.colors import TABLEAU_COLORS as TAB10_COLORS
+        colors = list(TAB10_COLORS)
         
         for i, c in enumerate(self.problem.constraints):
             x_vals, y_vals = self.get_constraint_line_x(c, x_range)

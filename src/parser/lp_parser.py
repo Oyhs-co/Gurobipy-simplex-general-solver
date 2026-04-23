@@ -6,12 +6,13 @@ from ..core import LinearProblem, LinearConstraint, VariableBound
 import re
 
 TERM_PATTERN = re.compile(
-    r"([+-]?\d*\.?\d*)([a-zA-Z][a-zA-Z0-9_]*)"
+    r"([+-]?)((?:\d+\.?\d*|\d*\.?\d+)(?:[eE][+-]?\d+)?|)([a-zA-Z][a-zA-Z0-9_]*)"
 )
-BOUND_SIMPLE = re.compile(r"([a-zA-Z]\w*)(<=|>=)(-?\d+\.?\d*)")
-BOUND_DOUBLE = re.compile(r"(-?\d+\.?\d*)<=([a-zA-Z]\w*)<=(-?\d+\.?\d*)")
+BOUND_SIMPLE = re.compile(r"([a-zA-Z]\w*)(<=|>=)(-?\d*\.?\d+(?:[eE][+-]?\d+)?)")
+BOUND_DOUBLE = re.compile(r"(-?\d*\.?\d+(?:[eE][+-]?\d+)?)<=([a-zA-Z]\w*)<=(-?\d*\.?\d+(?:[eE][+-]?\d+)?)")
 BOUND_FREE = re.compile(r"([a-zA-Z]\w*)\s+(free|unrestricted)", re.IGNORECASE)
-BOUND_LEFT = re.compile(r"(-?\d+\.?\d*)<=([a-zA-Z]\w*)")
+BOUND_LEFT = re.compile(r"(-?\d*\.?\d+(?:[eE][+-]?\d+)?)<=([a-zA-Z]\w*)")
+BOUND_RIGHT = re.compile(r"([a-zA-Z]\w*)<=(-?\d*\.?\d+(?:[eE][+-]?\d+)?)")
 
 
 class LPParser:
@@ -58,7 +59,7 @@ class LPParser:
             line = line.split('#', 1)[0].strip()
             if not line or line.startswith("#"):
                 continue
-            if self._is_bound(line):
+            if self._could_be_bound(line):
                 self._parse_bound(line)
                 continue
             constraint = self._parse_constraint(line.strip())
@@ -162,28 +163,37 @@ class LPParser:
             match = TERM_PATTERN.fullmatch(term)
 
             if not match:
-                raise ValueError(f"Término inválido: {term}")
+                raise ValueError(f"Térmano inválido: {term}")
 
-            coeff_str, var = match.groups()
+            sign_str, coeff_str, var = match.groups()
 
-            if coeff_str in ("", "+"):
+            sign = -1.0 if sign_str == "-" else 1.0
+            
+            if coeff_str == "":
                 coeff = 1.0
-            elif coeff_str == "-":
-                coeff = -1.0
             else:
                 coeff = float(coeff_str)
 
-            coefficients[var] = coefficients.get(var, 0) + coeff
+            coefficients[var] = coefficients.get(var, 0) + sign * coeff
 
         return coefficients
 
-    def _is_bound(self, line: str) -> bool:
-        """Verifica si la línea es un bound."""
-        return (
-            BOUND_SIMPLE.match(line)
-            or BOUND_DOUBLE.match(line)
-            or BOUND_FREE.match(line)
-        ) is not None
+    def _could_be_bound(self, line: str) -> bool:
+        """Verifica si la línea podría ser un bound."""
+        line_clean = line.replace(" ", "")
+        if "free" in line.lower() or "unrestricted" in line.lower():
+            return True
+        if "<=" in line_clean or ">=" in line_clean:
+            parts = line_clean.replace("<=", " ").replace(">=", " ").split()
+            if len(parts) >= 2:
+                lhs = parts[0].strip()
+                if re.match(r"^[a-zA-Z]\w*$", lhs):
+                    return True
+                if re.match(r"^-?\d*\.?\d+(?:[eE][+-]?\d+)?$", lhs):
+                    return True
+                if len(parts) == 3 and re.match(r"^[a-zA-Z]\w*$", parts[1]):
+                    return True
+        return False
 
     def _parse_bound(self, line: str) -> None:
         """Parsea un bound de variable."""
@@ -197,6 +207,20 @@ class LPParser:
             return
 
         line = line.replace(" ", "")
+
+        match = BOUND_DOUBLE.match(line)
+
+        if match:
+            lower, var, upper = match.groups()
+
+            bound = self.bounds.get(var, VariableBound(var))
+
+            bound.lower = float(lower)
+            bound.upper = float(upper)
+
+            self.bounds[var] = bound
+
+            return
 
         match = BOUND_SIMPLE.match(line)
 
@@ -224,18 +248,13 @@ class LPParser:
             self.bounds[var] = bound
             return
 
-        match = BOUND_DOUBLE.match(line)
+        match = BOUND_RIGHT.match(line)
 
         if match:
-            lower, var, upper = match.groups()
-
+            var, upper = match.groups()
             bound = self.bounds.get(var, VariableBound(var))
-
-            bound.lower = float(lower)
             bound.upper = float(upper)
-
             self.bounds[var] = bound
-
             return
 
         raise ValueError(f"Formato de bound inválido: {line}")

@@ -731,9 +731,11 @@ class LPAnalysis:
             constraints = self.problem.constraints.copy()
             bounds = self.problem.bounds
             
-            if var_x not in bounds or bounds[var_x].lower is None or bounds[var_x].lower < 0:
+            x_bound = bounds.get(var_x)
+            if x_bound is None or x_bound.lower is None or x_bound.lower < 0:
                 constraints.append(LinearConstraint(coefficients={var_x: 1}, rhs=0, sense=">="))
-            if var_y not in bounds or bounds[var_y].lower is None or bounds[var_y].lower < 0:
+            y_bound = bounds.get(var_y)
+            if y_bound is None or y_bound.lower is None or y_bound.lower < 0:
                 constraints.append(LinearConstraint(coefficients={var_y: 1}, rhs=0, sense=">="))
             
             vertices = []
