@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  lp-solver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lp-solver:latest
+    container_name: lp-solver
+    volumes:
+      - ./data:/app/data:ro
+    command: python main.py --help
+
+  # CLI interactivo
+  cli:
+    build: .
+    stdin_open: true
+    tty: true
+    volumes:
+      - .:/app
+    command: python main.py --help
+
+  # Benchmark
+  benchmark:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    command: python main.py --benchmark --solvers highs glpk --repetitions 1 /app/data/problem.txt
+
+  # Listar solvers disponibles
+  list-solvers:
+    build: .
+    command: python main.py --list-solvers
