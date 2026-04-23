@@ -9,7 +9,8 @@ import time
 from ..core import LinearProblem, Solution
 from ..parser import MultiLPParser
 from ..matrix import LPBuilder
-from .solver import SolverLP, SolverConfig
+from .gurobi import GurobiSolver as SolverLP
+from .gurobi import GurobiSolver
 
 
 @dataclass

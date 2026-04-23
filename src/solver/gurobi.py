@@ -1,0 +1,304 @@
+"""
+Solver de programacion lineal usando Gurobi Optimizer.
+Implementa la interfaz BaseSolver para soportar multiples solvers.
+"""
+
+from dataclasses import dataclass
+from typing import Optional
+import gurobipy as gp
+from gurobipy import GRB
+
+from ..matrix import PolarsLP
+from ..core import Solution
+from .base import BaseSolver, SolverStats, register_solver
+
+
+@register_solver("gurobi")
+class GurobiSolver(BaseSolver):
+    """
+    Solver de programacion lineal usando Gurobi Optimizer.
+    
+    ### atributos:
+    - lp: PolarsLP - El problema de PL a resolver.
+    - model: gp.Model - El modelo de Gurobi.
+    - config: GurobiConfig - Configuracion del solver.
+    """
+    
+    @dataclass
+    class Config(BaseSolver.Config):
+        """Configuracion especifica para Gurobi."""
+        method: int = -1
+        presolve: int = 1
+        display_interval: int = 1
+        numeric_focus: int = 0
+    
+    def __init__(self, lp: PolarsLP, config: Optional[Config] = None):
+        """
+        Inicializa el solver con un problema de PL.
+        
+        Args:
+            lp: PolarsLP - El problema de PL a resolver.
+            config: GurobiConfig - Configuracion del solver (default: config por defecto).
+        """
+        super().__init__(config)
+        self._solver_name = "Gurobi"
+        self.lp = lp
+        self.config = config or self.Config()
+        self.model = gp.Model("LP")
+        self._apply_config()
+        self.iis_constraints: list[str] = []
+        self.iis_variables: list[str] = []
+    
+    @property
+    def solver_version(self) -> str:
+        """Version de Gurobi."""
+        try:
+            import gurobipy
+            return gurobipy.__version__
+        except:
+            return "Unknown"
+    
+    @property
+    def is_available(self) -> bool:
+        """Verifica si Gurobi esta disponible."""
+        try:
+            import gurobipy
+            return True
+        except ImportError:
+            return False
+    
+    def _apply_config(self) -> None:
+        """Aplica la configuracion al modelo."""
+        self.model.setParam("OutputFlag", 1 if self.config.verbose else 0)
+        
+        if self.config.time_limit is not None:
+            self.model.setParam("TimeLimit", self.config.time_limit)
+        if self.config.mip_gap is not None:
+            self.model.setParam("MIPGap", self.config.mip_gap)
+        if self.config.threads is not None:
+            self.model.setParam("Threads", self.config.threads)
+        if isinstance(self.config, GurobiSolver.Config):
+            if self.config.method != -1:
+                self.model.setParam("Method", self.config.method)
+            if self.config.presolve != 1:
+                self.model.setParam("Presolve", self.config.presolve)
+            if self.config.display_interval != 1:
+                self.model.setParam("DisplayInterval", self.config.display_interval)
+            if self.config.numeric_focus != 0:
+                self.model.setParam("NumericFocus", self.config.numeric_focus)
+    
+    def solve(self) -> Solution:
+        """
+        Resuelve el problema de programacion lineal.
+        
+        Returns:
+            Solution: Objeto con el estado, valores y metadatos de la solucion.
+        """
+        import time
+        start_time = time.perf_counter()
+        
+        self._build_model()
+        
+        build_time = time.perf_counter() - start_time
+        self.stats.build_time = build_time
+        
+        solve_start = time.perf_counter()
+        self.model.optimize()
+        self.stats.solve_time = time.perf_counter() - solve_start
+        
+        return self._extract_solution()
+    
+    def diagnose_infeasibility(self) -> dict:
+        """
+        Diagnostica la causa de infactibilidad usando IIS.
+        
+        Returns:
+            dict: Diccionario con informacion del IIS.
+        """
+        self._build_model()
+        self.model.optimize()
+        
+        if self.model.status != GRB.INFEASIBLE:
+            return {
+                "is_infeasible": False,
+                "message": "El modelo es factible"
+            }
+        
+        self.model.computeIIS()
+        
+        iis_constraints = []
+        for constr in self.model.getConstrs():
+            if constr.iisconstr:
+                iis_constraints.append(constr.constrName)
+        
+        iis_variables = []
+        for var in self.model.getVars():
+            if var.iisvar:
+                iis_variables.append(var.varName)
+        
+        self.iis_constraints = iis_constraints
+        self.iis_variables = iis_variables
+        
+        return {
+            "is_infeasible": True,
+            "iis_constraints": iis_constraints,
+            "iis_variables": iis_variables,
+            "message": f"IIS encontrado: {len(iis_constraints)} restricciones, {len(iis_variables)} variables"
+        }
+    
+    def _build_model(self) -> None:
+        """Construye el modelo de Gurobi desde la representacion PL."""
+        import polars as pl
+        
+        bounds_map: dict[str, tuple[float | None, float | None]] = {}
+        for row in self.lp.bounds.iter_rows(named=True):
+            bounds_map[row["variable"]] = (row.get("lower"), row.get("upper"))
+        
+        variables: dict[str, gp.Var] = {}
+        all_vars: set[str] = set()
+        
+        for row in self.lp.objective.iter_rows(named=True):
+            all_vars.add(row["variable"])
+        for row in self.lp.coefficients.iter_rows(named=True):
+            all_vars.add(row["variable"])
+        all_vars.update(bounds_map.keys())
+        
+        for var_name in sorted(all_vars):
+            lb, ub = bounds_map.get(var_name, (None, None))
+            
+            if lb is None and ub is None and var_name not in bounds_map:
+                lb = 0.0
+                ub = GRB.INFINITY
+            elif lb is None and ub is None:
+                lb = -GRB.INFINITY
+                ub = GRB.INFINITY
+            else:
+                lb = 0.0 if lb is None else lb
+                ub = GRB.INFINITY if ub is None else ub
+            
+            variables[var_name] = self.model.addVar(
+                vtype=GRB.CONTINUOUS,
+                lb=lb,
+                ub=ub,
+                name=var_name
+            )
+        
+        self.model.update()
+        
+        objective_expr = gp.LinExpr()
+        for row in self.lp.objective.iter_rows(named=True):
+            var_name = row["variable"]
+            coeff = row["coefficient"]
+            objective_expr += coeff * variables[var_name]
+        
+        sense = GRB.MAXIMIZE if self.lp.sense.lower() == "max" else GRB.MINIMIZE
+        self.model.setObjective(objective_expr, sense)
+        
+        for row in self.lp.constraints.iter_rows(named=True):
+            constraint_expr = gp.LinExpr()
+            coeff_filter = self.lp.coefficients.filter(
+                pl.col("constraint") == row["constraint"]
+            )
+            for coeff_row in coeff_filter.iter_rows(named=True):
+                var_name = coeff_row["variable"]
+                coeff = coeff_row["coefficient"]
+                constraint_expr += coeff * variables[var_name]
+            
+            if row["sense"] == "<=":
+                self.model.addConstr(
+                    constraint_expr <= row["rhs"],
+                    name=row["constraint"]
+                )
+            elif row["sense"] == ">=":
+                self.model.addConstr(
+                    constraint_expr >= row["rhs"],
+                    name=row["constraint"]
+                )
+            elif row["sense"] == "=":
+                self.model.addConstr(
+                    constraint_expr == row["rhs"],
+                    name=row["constraint"]
+                )
+    
+    def _extract_solution(self) -> Solution:
+        """Extrae la solucion del modelo de Gurobi."""
+        self.stats.iterations = int(self.model.IterCount)
+        self.stats.nodes = int(self.model.NodeCount)
+        
+        if self.model.status == GRB.OPTIMAL:
+            return self._extract_optimal_solution()
+        elif self.model.status == GRB.INFEASIBLE:
+            return self._extract_infeasible_solution()
+        elif self.model.status == GRB.UNBOUNDED:
+            return self._extract_unbounded_solution()
+        else:
+            return Solution(
+                status=f"STATUS_{self.model.status}",
+                objective_value=None,
+                variables={},
+                iterations=self.stats.iterations,
+                nodes=self.stats.nodes
+            )
+    
+    def _extract_optimal_solution(self) -> Solution:
+        """Extrae la solucion optima con valores duales y costos reducidos."""
+        var_values = {}
+        reduced_costs = {}
+        
+        for var in self.model.getVars():
+            var_values[var.varName] = var.x
+            rc = var.rc
+            if abs(rc) > 1e-10:
+                reduced_costs[var.varName] = rc
+        
+        dual_values = {}
+        for constr in self.model.getConstrs():
+            pi = constr.pi
+            if abs(pi) > 1e-10:
+                dual_values[constr.constrName] = pi
+        
+        if self.config.verbose:
+            self._print_solution(var_values, self.model.objVal)
+        
+        return Solution(
+            status="OPTIMAL",
+            objective_value=self.model.objVal,
+            variables=var_values,
+            dual_values=dual_values if dual_values else None,
+            reduced_costs=reduced_costs if reduced_costs else None,
+            iterations=self.stats.iterations,
+            nodes=self.stats.nodes
+        )
+    
+    def _extract_infeasible_solution(self) -> Solution:
+        """Extrae solucion para problema infactible."""
+        if self.config.verbose:
+            print("Estado: El modelo es infactible")
+        
+        self.diagnose_infeasibility()
+        
+        return Solution(
+            status="INFEASIBLE",
+            objective_value=None,
+            variables={}
+        )
+    
+    def _extract_unbounded_solution(self) -> Solution:
+        """Extrae solucion para problema no acotado."""
+        if self.config.verbose:
+            print("Estado: El modelo es no acotado")
+        
+        return Solution(
+            status="UNBOUNDED",
+            objective_value=None,
+            variables={}
+        )
+    
+    def _print_solution(self, var_values: dict[str, float], obj_val: float) -> None:
+        """Imprime la solucion (solo cuando verbose=True)."""
+        print(f"Valor optimo: {obj_val:.2f}")
+        for var, value in sorted(var_values.items()):
+            print(f"{var} = {value:.2f}")
+
+
+SolverLP = GurobiSolver
