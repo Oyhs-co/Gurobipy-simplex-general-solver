@@ -1,6 +1,6 @@
-# Guía Matemática - Gurobipy-Simplex-General-Solver
+# Guía Matemática - ISLA LP Benchmark
 
-Esta guía es para **matemáticos e investigadores** que quieren entender la teoría detrás del solucionador.
+Esta guía es para **matemáticos e investigadores** que quieren entender la teoría detrás del sistema.
 
 ## Fundamento Matemático
 
@@ -29,7 +29,7 @@ Un problema de Programación Lineal (PL) tiene:
 
 ### Forma Estándar
 
-El solucionador convierte problemas a forma estándar:
+El sistema convierte problemas a forma estándar:
 
 - **Maximización**: Convertir a minimización si es necesario
 - **Desigualdades**: Convertir >= a <= multiplicando por -1
@@ -37,7 +37,7 @@ El solucionador convierte problemas a forma estándar:
 
 ## Métodos de Solución
 
-### Método Simplex
+### Simplex
 
 El **Método Simplex** (Dantzig, 1947) es el algoritmo primario:
 
@@ -47,22 +47,22 @@ El **Método Simplex** (Dantzig, 1947) es el algoritmo primario:
 
 **Complejidad**: O(mn) por iteración, polinomial en promedio.
 
+### Comparación de Solvers
+
+| Solver | Algoritmo | Fortalezas |
+|--------|-----------|------------|
+| **HiGHS** | Dual Simplex | Rápido para LP densos |
+| **GLPK** | Simplex | Open source estable |
+| **CBC** | Branch & Cut | Para MIP |
+| **Gurobi** | Multi-method | Mejor rendimiento general |
+
 ### Métodos de Punto Interior
 
-Para problemas grandes, Gurobi usa **Métodos de Barrera**:
+Para problemas grandes, algunos solvers usan **Métodos de Barrera**:
 
 1. **Barrera Logarítmica**: Agregar término de barrera al objetivo
 2. **Camino Central**: Seguir camino al óptimo
 3. **Método de Newton**: Resolver condiciones KKT
-
-### Implementación de Gurobi
-
-El solucionador usa la implementación de Gurobi que incluye:
-
-- **Simplex Primal**: Trabajar en problema primal
-- **Simplex Dual**: Trabajar en problema dual
-- **Barrera**: Método de punto interior
-- **Concurrente**: Ejecutar múltiples métodos en paralelo
 
 ## Análisis de Sensibilidad
 
@@ -74,8 +74,8 @@ Para variable xⱼ en el óptimo:
 costo_reducido = coeficiente_objetivo - precio_sombra * coeficiente_restricción
 ```
 
-Si costo_reducido > 0 (problema max): aumentar xⱼ decrease objetivo
-Si costo_reducido < 0 (problema max): aumentar xⱼ increase objetivo
+- Si costo_reducido > 0 (max): aumentar xⱼ decrease objetivo
+- Si costo_reducido < 0 (max): aumentar xⱼ increase objetivo
 
 ### Precios Sombra (Valores Duales)
 
@@ -114,55 +114,67 @@ Todo problema primal tiene un dual:
 
 **Dualidad Fuerte**: Si el primal tiene solución óptima, el dual también la tiene con el mismo valor objetivo.
 
-## Usando el Solucionador
+## Benchmark - Fair Comparison
 
-### Acceder a Valores Duales
+### Warmup
+
+Para comparaciones justas:
 
 ```python
-solution = solver.solve()
-
-# Precios sombra
-if solution.dual_values:
-    for restriccion, precio in solution.dual_values.items():
-        print(f"{restriccion}: {precio:.4f}")
-
-# Costos reducidos
-if solution.reduced_costs:
-    for variable, costo in solution.reduced_costs.items():
-        print(f"{variable}: {costo:.4f}")
+config = BenchmarkConfig(
+    warmup_runs=1,    # Ejecuciones de calentamiento
+    runs_per_problem=3
+)
 ```
 
-### Diagnóstico IIS
+El warmup elimina variaciones de JVM/hotspot.
+
+### Métricas de Benchmark
+
+| Métrica | Descripción |
+|---------|------------|
+| parse_time | Tiempo de parsing |
+| build_time | Construcción Polars |
+| solve_time | Resolución solver |
+| total_time | Tiempo total |
+| memory_used_mb | MemoriaDelta |
+| peak_memory_mb | Pico de memoria |
+| iterations | Iteraciones simplex |
+| nodes | Nodos explorados |
+
+### Configuración Uniforme
 
 ```python
-solver = SolverLP(lp)
-solution = solver.solve()
-
-if solution.is_infeasible():
-    iis = solver.diagnose_infeasibility()
-    print(f"Restricciones en conflicto: {iis['iis_constraints']}")
+# Misma configuración para todos los solvers
+config = BenchmarkConfig(
+    fairness_mode=True,  # Configuración uniforme
+    collect_memory=True,
+    collect_detailed_stats=True
+)
 ```
 
 ## Selección del Algoritmo
 
-### Cuándo Usar Cada Método
+### Cuándo Usar Cada Solver
 
-| Método | Mejor Para |
+| Solver | Mejor Para |
 |--------|----------|
-| Simplex Primal | Problemas densos, warm starts |
-| Simplex Dual | Adiciones de restricciones, análisis de sensibilidad |
-| Barrera | Problemas grandes y dispersos |
-| Concurrente | Problemas difíciles, rendimiento no confiable |
+| HiGHS | LP densos, open source |
+| GLPK | Portabilidad, open source |
+| CBC | MIP simples |
+| Gurobi | Mejor rendimiento general |
 
 ### Configuración
 
 ```python
-from src.solver import SolverConfig
+from src.solver import BenchmarkRunner, BenchmarkConfig
 
-# Forzar método específico
-config = SolverConfig(method=0)  # Primal
-config = SolverConfig(method=1)  # Dual
-config = SolverConfig(method=2)  # Barrera
+config = BenchmarkConfig(
+    warmup_runs=1,
+    runs_per_problem=3,
+    collect_memory=True,
+    fairness_mode=True
+)
 ```
 
 ## Notas de Rendimiento
@@ -176,14 +188,15 @@ config = SolverConfig(method=2)  # Barrera
 | Densidad | Matrices densas son más lentas |
 | Degeneración | Puede causar ciclación |
 
-### Parámetros de Gurobi
+### Parámetros de Benchmark
 
 ```python
-config = SolverConfig(
-    time_limit=300,    # Segundos
-    mip_gap=0.0001,   # Gap de optimalidad 0.01%
-    threads=8,        # Hilos paralelos
-    presolve=1         # Habilitar presolve
+config = BenchmarkConfig(
+    warmup_runs=2,       # Warmup iterations
+    runs_per_problem=5,  # Repeticiones
+    time_limit=60,       # Límite por problema
+    verbose=False,        # Salida detallada
+    collect_memory=True   # Métricas de memoria
 )
 ```
 
@@ -193,6 +206,7 @@ config = SolverConfig(
 
 1. Dantzig, G. B. (1963). *Linear Programming and Extensions*. Princeton University Press.
 2. Bertsimas, D., & Tsitsiklis, J. N. (1997). *Introduction to Linear Optimization*. Athena Scientific.
-3. Gurobi Optimization. (2024). *Gurobi Optimizer Reference Manual*.
+3. HiGHS Documentation. *Highs Optimization Solver*.
+4. GLPK Documentation. *GNU Linear Programming Kit*.
 
 Para detalles de API, ver [README.md](../README.md).

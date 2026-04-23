@@ -1,7 +1,7 @@
 [project]
-name = "gurobipy-simplex-general-solver"
+name = "isla-lp-benchmark"
 version = "1.0.0"
-description = "Easily Linear Programming Solver with Gurobi and Simplex Method"
+description = "LP Benchmarking Platform - Compare multiple Linear Programming solvers"
 authors = [
     {name = "Oyhs-co",email = "oyhsotelo@gmail.com"}
 ]

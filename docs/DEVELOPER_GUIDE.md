@@ -1,49 +1,61 @@
-# Guía del Desarrollador - Gurobipy-Simplex-General-Solver
+# Guía del Desarrollador - ISLA LP Benchmark
 
-Esta guía es para **desarrolladores** que quieren extender o integrar este proyecto.
+Esta guía es para **desarrolladores** que quieren extender o integrar el proyecto.
 
-## Visión General de la Arquitectura
-
-### Estructura de Módulos
+## Arquitectura del Sistema
 
 ```
 src/
-├── core/                    # Clases base de datos
-│   ├── problem.py           # LinearProblem
-│   ├── constraint.py      # LinearConstraint
-│   ├── bound.py          # VariableBound
-│   ├── solution.py       # Solution
-│   └── exceptions.py     # Excepciones personalizadas
-├── parser/                 # Analizadores sintácticos
-│   ├── lp_parser.py       # Formato texto personalizado
-│   ├── cplex_parser.py  # Formato CPLEX/LP
-│   └── multi_parser.py   # Multi-problema
-├── matrix/                 # Estructuras de datos
-│   ├── builder.py       # Constructor Polars
-│   └── matrix.py       # Clase PolarsLP
-├── solver/                # Optimización
-│   ├── solver.py        # Solucionador Gurobi
-│   ├── multi_solver.py # Multi-problema
-│   └── __init__.py    # Exports SolverConfig
-├── analysis/              # Generación PDFs
-│   ├── analysis.py      # Problema individual
-│   └── multi_analysis.py # Multi-problema
-├── visualization/        # Visualización gráfica
-│   └── visualization.py # Gráficos Matplotlib
-└── utils/                # Utilidades
-    ├── validation.py   # Validación de entrada
-    ├── exporter.py  # Exportación LP
-    └── logging.py  # Sistema de logging
+├── cli/                      # Interfaz CLI
+│   ├── __main__.py           # Punto de entrada
+│   ├── benchmark.py         # Handler benchmark
+│   ├── solve.py           # Handler resolución
+│   └── __init__.py        # Utilidades sistema
+├── solver/                  # Implementaciones de solvers
+│   ├── base.py            # BaseSolver, SolverRegistry
+│   ├── gurobi.py         # Solver Gurobi
+│   ├── highs_solver.py    # Solver HiGHS (native)
+│   ├── glpk_solver.py    # Solver GLPK (native)
+│   ├── cbc.py           # Solver CBC (PuLP)
+│   ├── benchmark.py     # BenchmarkRunner
+│   └── __init__.py
+├── analysis/               # Análisis y reportes
+│   ├── analysis.py       # Reporte single
+│   ├── benchmark_report.py  # Reporte PDF
+│   ├── benchmark_results.py # Visualización
+│   └── __init__.py
+├── parser/                # Parsing de archivos
+│   ├── lp_parser.py     # Formato texto
+│   ├── cplex_parser.py # CPLEX/LP
+│   └── __init__.py
+├── core/                  # Modelos de datos
+│   ├── problem.py      # LinearProblem
+│   ├── constraint.py # LinearConstraint
+│   ├── bound.py       # VariableBound
+│   ├── solution.py    # Solution
+│   └── __init__.py
+├── matrix/                # Construcción Polars
+│   ├── builder.py     # LPBuilder
+│   ├── matrix.py     # PolarsLP
+│   └── __init__.py
+├── visualization/         # Gráficos
+│   ├── visualization.py
+│   └── __init__.py
+└── utils/                 # Utilidades
+    ├── validation.py
+    ├── exporter.py
+    ├── logging.py
+    └── __init__.py
 ```
 
 ## Uso Básico
 
-### Parsear y Resolver
+### Resolver un Problema
 
 ```python
 from src.parser import LPParser
 from src.matrix import LPBuilder
-from src.solver import SolverLP
+from src.solver import SolverRegistry
 
 # Parsear
 problem = LPParser(texto).parse()
@@ -51,46 +63,172 @@ problem = LPParser(texto).parse()
 # Construir
 lp = LPBuilder(problem).build()
 
+# Obtener solver
+solver_class = SolverRegistry.get('highs')
+solver = solver_class(lp)
+
 # Resolver
-solution = SolverLP(lp).solve()
+solution = solver.solve()
 
 # Resultados
 print(solution.objective_value)
 print(solution.variables)
 ```
 
-### Con Configuración
+### Modo Benchmark
 
 ```python
-from src.solver import SolverConfig
+from src.solver import BenchmarkRunner, BenchmarkConfig
 
-config = SolverConfig(
-    verbose=True,
-    time_limit=30.0,
-    threads=4
+config = BenchmarkConfig(
+    warmup_runs=1,
+    runs_per_problem=3,
+    verbose=False,
+    collect_memory=True
 )
-solver = SolverLP(lp, config=config)
+
+runner = BenchmarkRunner(config)
+problems = [("problema1", texto)]
+solvers = ['highs', 'glpk', 'cbc']
+
+results = runner.run(problems, solvers)
+
+# Métricas
+summary = runner.get_summary()
+print(summary['by_solver'])
 ```
 
-### Con Validación
+### Listar Solvers Disponibles
 
 ```python
-from src.utils.validation import validate_problem
+from src.solver import SolverRegistry
 
-validation = validate_problem(problem)
-if not validation.is_valid:
-    print(validation.summary())
+# Lista de nombres
+solvers = SolverRegistry.list_solvers()
+print(solvers)  # ['gurobi', 'highs', 'glpk', 'cbc']
+
+# Información detallada
+all_info = SolverRegistry.list_all_info()
+for name, info in all_info.items():
+    print(f"{name}: {info['available']}")
 ```
 
-## Extendiendo el Proyecto
+## Registro de Solvers
 
-### Agregar un Nuevo Parser
+### @register_solver Decorator
 
-1. Crear una nueva clase parser en `src/parser/`
-2. Implementar el método `parse()` retornando `LinearProblem`
-3. Importar en `src/parser/__init__.py`
+```python
+from src.solver import BaseSolver, SolverStats, register_solver
+from src.core import Solution, LinearProblem
+from src.matrix import PolarsLP
 
-Ejemplo:
+@register_solver("mi_solver")
+class MiSolver(BaseSolver):
+    """ Implementación de solver personalizado """
+    
+    def __init__(self, model: PolarsLP, config=None):
+        super().__init__(config)
+        self.model = model
+        self._solution = None
+        self._linear_problem = None
+    
+    @property
+    def solver_name(self) -> str:
+        return "mi_solver"
+    
+    @property
+    def solver_version(self) -> str:
+        return "1.0.0"
+    
+    @property
+    def is_available(self) -> bool:
+        # Verificar disponibilidad
+        return True
+    
+    def set_problem(self, problem: LinearProblem) -> None:
+        self._linear_problem = problem
+    
+    def solve(self) -> Solution:
+        # Resolver problema
+        return Solution(
+            status="OPTIMAL",
+            objective_value=42.0,
+            variables={"x": 1.0, "y": 2.0}
+        )
+    
+    def get_stats(self) -> SolverStats:
+        return SolverStats(iterations=2, nodes=0)
+```
+
+## APIs Principales
+
+### LinearProblem
+
+```python
+from src.core import LinearProblem, LinearConstraint, VariableBound
+
+problem = LinearProblem(
+    objective={"x": 3000, "y": 5000},
+    sense="max",
+    constraints=[
+        LinearConstraint(
+            coefficients={"x": 2, "y": 3},
+            rhs=120,
+            sense="<="
+        )
+    ],
+    bounds={
+        "x": VariableBound("x", 0, None),
+        "y": VariableBound("y", 0, None)
+    }
+)
+```
+
+### Solution
+
+```python
+solution = Solution(
+    status="OPTIMAL",
+    objective_value=190000.0,
+    variables={"x": 30.0, "y": 20.0},
+    dual_values={"c1": 1000.0},
+    reduced_costs={"x": 0.0, "y": 0.0}
+)
+
+# Verificar estado
+solution.is_optimal()    # True
+solution.is_infeasible() # False
+solution.is_unbounded()   # False
+```
+
+### BenchmarkRunner
+
+```python
+runner = BenchmarkRunner(config)
+
+# Agregar resultado
+runner.results.append(BenchmarkResult(
+    solver_name="highs",
+    problem_name="problema1",
+    problem_text=texto,
+    solution=solution,
+    stats=SolverStats(iterations=2, nodes=0),
+    parse_time=0.001,
+    build_time=0.002,
+    solve_time=0.045,
+    total_time=0.048,
+    memory_used_mb=45.2,
+    peak_memory_mb=52.1
+))
+
+# Exportar
+runner.export_csv(Path("results.csv"))
+runner.export_json(Path("results.json"))
+```
+
+## Extensiones
+
+### Agregar Nuevo Parser
 
 ```python
 # src/parser/mi_parser.py
@@ -101,43 +239,18 @@ class MiParser:
         self.texto = texto
     
     def parse(self) -> LinearProblem:
-        # Lógica de parseo aquí
+        # Lógica de parsing
         return LinearProblem(...)
 ```
 
-### Agregar un Nuevo Solucionador
-
-1. Crear clase solver en `src/solver/`
-2. Implementar método `solve()` retornando `Solution`
-3. Exportar en `src/solver/__init__.py`
-
-### Agregar Validación
-
-Agregar códigos de validación en `src/utils/validation.py`:
+### Agregar Visualización
 
 ```python
-# Códigos de error
-issues.append(ValidationIssue(
-    severity="ERROR",
-    code="NUEVO001",
-    message="Mensaje de error personalizado",
-    location="contexto"
-))
-```
+from src.analysis.benchmark_results import BenchmarkVisualizer
 
-## Opciones de Configuración
-
-### Parámetros de SolverConfig
-
-```python
-config = SolverConfig(
-    verbose=False,      # Imprimir salida
-    time_limit=60.0,   # Segundos
-    mip_gap=0.0001,  # Gap MIP
-    threads=4,        # Hilos de CPU
-    method=-1,        # -1=auto, 0=primal, 1=dual, 2=barrier
-    presolve=1         # 0=off, 1=on
-)
+viz = BenchmarkVisualizer(runner)
+viz.plot_times_comparison(save_path="times.png")
+viz.plot_memory_comparison(save_path="memory.png")
 ```
 
 ## Patrones Comunes
@@ -145,11 +258,11 @@ config = SolverConfig(
 ### Manejo de Errores
 
 ```python
-from src.core.exceptions import LPError
+from src.core.exceptions import LPParseError, LPSolverError
 
 try:
     problem = LPParser(texto).parse()
-except LPError as e:
+except LPParseError as e:
     print(f"Error de parseo: {e}")
 ```
 
@@ -161,12 +274,11 @@ solution = solver.solve()
 if solution.is_optimal():
     print(f"Óptimo: {solution.objective_value}")
 elif solution.is_infeasible():
-    iis = solver.diagnose_infeasibility()
-    print(f"IIS: {iis}")
+    print("Problema infactible")
 elif solution.is_unbounded():
     print("Problema no acotado")
 ```
 
 ---
 
-Para referencia de API, ver [README.md](../README.md).
+Para referencia de API completa, ver [README.md](../README.md).
