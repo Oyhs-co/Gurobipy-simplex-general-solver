@@ -6,7 +6,7 @@ Reporte academico profesional usando fpdf2.
 from __future__ import annotations
 from datetime import datetime
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict, Any
 import tempfile
 import os
 import platform
@@ -39,10 +39,14 @@ class LPAnalysis:
     """Genera reportes academicos profesionales para problemas de programacion lineal."""
 
     def __init__(self, problem: LinearProblem, solution: Solution, 
-                 times: Optional[ExecutionTimes] = None):
+                 times: Optional[ExecutionTimes] = None,
+                 system_info: Optional[Dict] = None,
+                 solver_name: str = "gurobi"):
         self.problem = problem
         self.solution = solution
         self.times = times or ExecutionTimes()
+        self.system_info = system_info if system_info is not None else {}
+        self.solver_name = solver_name
         self.page_count = 0
 
     def generate_pdf(self, output_path: str) -> None:
@@ -190,21 +194,26 @@ class LPAnalysis:
         pdf.line(MARGIN, pdf.get_y(), PAGE_WIDTH - MARGIN, pdf.get_y())
         pdf.ln(2)
         
+        p = self.system_info.get("platform", {})
+        
+        half_width = CONTENT_WIDTH / 2
+        
         pdf.set_font('Helvetica', '', 7)
         pdf.set_text_color(60, 60, 60)
         
-        half_width = CONTENT_WIDTH / 2
-        pdf.cell(half_width, 4, f"Python: {sys.version.split()[0]}")
-        pdf.cell(half_width, 4, f"Sistema: {platform.system()} {platform.release()}")
+        pdf.cell(half_width, 4, f"Solver: {self.solver_name}")
+        pdf.cell(half_width, 4, f"Python: {p.get('python_version', sys.version.split()[0])}")
         pdf.ln(4)
         
-        pdf.cell(half_width, 4, f"Procesador: {platform.processor()}")
-        pdf.cell(half_width, 4, f"Arquitectura: {platform.machine()}")
+        pdf.cell(half_width, 4, f"Sistema: {p.get('system', platform.system())} {p.get('release', platform.release())}")
+        pdf.cell(half_width, 4, f"Procesador: {p.get('processor', platform.processor())}")
         pdf.ln(4)
         
-        fecha_gen = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        pdf.cell(half_width, 4, f"Hostname: {platform.node()}")
-        pdf.cell(half_width, 4, f"Fecha: {fecha_gen}")
+        pdf.cell(half_width, 4, f"Arquitectura: {p.get('machine', platform.machine())}")
+        pdf.cell(half_width, 4, f"Hostname: {self.system_info.get('hostname', platform.node())}")
+        pdf.ln(4)
+        
+        pdf.cell(half_width, 4, f"Fecha: {self.system_info.get('timestamp', datetime.now().isoformat())[:19]}")
         pdf.ln(5)
         
         pdf.set_text_color(0, 0, 0)
