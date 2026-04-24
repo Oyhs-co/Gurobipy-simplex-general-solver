@@ -22,6 +22,8 @@ class GLPKSolver(BaseSolver):
         self.config = config or self.Config()
         self._solution: Optional[Solution] = None
         self._linear_problem: Optional[LinearProblem] = None
+        self._iterations = 0
+        self._nodes = 0
     
     @property
     def solver_name(self) -> str:
@@ -151,6 +153,10 @@ class GLPKSolver(BaseSolver):
                     variables[var] = swiglpk.glp_get_col_prim(prob, i + 1)
                 
                 obj_value = swiglpk.glp_get_obj_val(prob)
+                try:
+                    self._iterations = swiglpk.glp_get_simplex_itcnt(prob)
+                except:
+                    self._iterations = 0
             else:
                 obj_value = None
             
@@ -179,4 +185,7 @@ class GLPKSolver(BaseSolver):
     
     def get_stats(self) -> SolverStats:
         """Obtiene estadisticas de la resolucion."""
-        return SolverStats()
+        return SolverStats(
+            iterations=self._iterations,
+            nodes=self._nodes
+        )

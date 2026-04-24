@@ -22,6 +22,8 @@ class CBCSolver(BaseSolver):
         self.config = config or self.Config()
         self._solution: Optional[Solution] = None
         self._problem_obj: Optional[LinearProblem] = None
+        self._iterations = 0
+        self._nodes = 0
     
     @property
     def solver_name(self) -> str:
@@ -111,15 +113,22 @@ class CBCSolver(BaseSolver):
             status = status_map.get(LpStatus[prob.status], str(prob.status))
             
             variables = {}
+            obj_value = None
             
             if status == "OPTIMAL":
                 for var in prob.variables():
                     if var.varValue is not None:
                         variables[var.name] = var.varValue
+                obj_val = pulp.value(prob.objective)
+                obj_value = float(obj_val) if obj_val is not None else None
+                try:
+                    self._iterations = getattr(prob.solver, 'iterations', 0) or 0
+                except:
+                    self._iterations = 0
             
             self._solution = Solution(
                 status=status,
-                objective_value=pulp.value(prob.objective),
+                objective_value=obj_value,
                 variables=variables,
             )
             
@@ -134,4 +143,7 @@ class CBCSolver(BaseSolver):
     
     def get_stats(self) -> SolverStats:
         """Obtiene estadisticas de la resolucion."""
-        return SolverStats()
+        return SolverStats(
+            iterations=self._iterations,
+            nodes=self._nodes
+        )

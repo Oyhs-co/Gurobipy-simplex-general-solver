@@ -117,8 +117,12 @@ class BenchmarkRunner:
                 if self.config.verbose:
                     print(f"  Solver: {solver_name}")
                 
-                result = self._run_single(solver_name, problem_name, problem_text)
-                self.results.append(result)
+                for rep in range(self.config.runs_per_problem):
+                    if self.config.verbose and self.config.runs_per_problem > 1:
+                        print(f"    Repeticion: {rep + 1}")
+                    
+                    result = self._run_single(solver_name, problem_name, problem_text)
+                    self.results.append(result)
         
         return self.results
     
@@ -230,6 +234,9 @@ class BenchmarkRunner:
                 summary["by_solver"][solver] = {
                     "runs": 0,
                     "avg_time": 0,
+                    "min_time": float('inf'),
+                    "max_time": 0,
+                    "times": [],
                     "total_time": 0,
                     "successful": 0,
                     "avg_memory": 0,
@@ -240,6 +247,9 @@ class BenchmarkRunner:
             
             summary["by_solver"][solver]["runs"] += 1
             summary["by_solver"][solver]["total_time"] += result.total_time
+            summary["by_solver"][solver]["times"].append(result.total_time)
+            summary["by_solver"][solver]["min_time"] = min(summary["by_solver"][solver]["min_time"], result.total_time)
+            summary["by_solver"][solver]["max_time"] = max(summary["by_solver"][solver]["max_time"], result.total_time)
             summary["by_solver"][solver]["total_iterations"] += result.stats.iterations
             summary["by_solver"][solver]["total_nodes"] += result.stats.nodes
             if result.memory_used_mb > 0:
@@ -267,6 +277,14 @@ class BenchmarkRunner:
             if summary["by_solver"][solver]["runs"] > 0:
                 data = summary["by_solver"][solver]
                 data["avg_time"] = data["total_time"] / data["runs"]
+                if data["min_time"] == float('inf'):
+                    data["min_time"] = 0
+                if len(data["times"]) > 1:
+                    import numpy as np
+                    data["std_time"] = np.std(data["times"])
+                else:
+                    data["std_time"] = 0
+                del data["times"]
                 if data["avg_memory"] > 0:
                     data["avg_memory"] = data["avg_memory"] / data["runs"]
         

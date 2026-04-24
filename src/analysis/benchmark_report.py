@@ -1,16 +1,17 @@
 """
 Reporte de benchmark multi-solver.
-Genera PDF con comparacion de multiples solvers.
+Genera PDF con comparacion detallada de multiples solvers.
 """
 
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import tempfile
 import os
 
 from fpdf import FPDF
 from fpdf.enums import Align, XPos, YPos
+import numpy as np
 
 from ..solver import BenchmarkRunner
 
@@ -28,20 +29,21 @@ class BenchmarkPDF(FPDF):
     
     def footer(self):
         self.set_y(-15)
+        self.set_x(MARGIN)
         self.set_draw_color(0, 51, 102)
         self.set_line_width(0.3)
         self.line(MARGIN, self.get_y(), PAGE_WIDTH - MARGIN, self.get_y())
         self.ln(3)
-
+        
         self.set_font('Helvetica', 'I', 7)
         self.set_text_color(100, 100, 100)
-        self.cell(80, 4, "Benchmark Report")
+        self.cell(80, 4, "ISLA LP Benchmark Report")
         fecha = datetime.now().strftime("%d/%m/%Y")
         self.cell(0, 4, f"Fecha: {fecha} | Pagina {self.page_no()}", align=Align.R)
 
 
 class BenchmarkReport:
-    """Genera reportes PDF para benchmarking multi-solver."""
+    """Genera reportes PDF detallado para benchmarking."""
     
     def __init__(self, runner: BenchmarkRunner, system_info: Optional[Dict[str, Any]] = None):
         self.runner = runner
@@ -57,13 +59,20 @@ class BenchmarkReport:
         self._cover(pdf)
         
         pdf.add_page()
-        self._summary(pdf)
+        self._summary_stats(pdf)
         
         pdf.add_page()
-        self._detailed(pdf)
+        self._solver_comparison(pdf)
         
         pdf.add_page()
-        self._charts(pdf)
+        self._detailed_results(pdf)
+        
+        pdf.add_page()
+        self._problem_definitions(pdf)
+        
+        if self._has_charts():
+            pdf.add_page()
+            self._charts(pdf)
         
         if self.system_info:
             pdf.add_page()
@@ -71,157 +80,359 @@ class BenchmarkReport:
         
         pdf.output(output_path)
     
+    def _has_charts(self) -> bool:
+        return len(self.runner.results) > 0
+    
     def _cover(self, pdf: BenchmarkPDF) -> None:
         """Pagina de portada."""
-        pdf.set_font('Helvetica', 'B', 22)
+        pdf.set_font('Helvetica', 'B', 24)
         pdf.set_text_color(0, 51, 102)
-        pdf.ln(40)
-        pdf.cell(0, 12, "REPORTE DE BENCHMARK", align=Align.C, new_y=YPos.NEXT)
+        pdf.ln(50)
+        pdf.cell(0, 14, "ISLA LP BENCHMARK", align=Align.C, new_y=YPos.NEXT)
         
         pdf.ln(10)
+        pdf.set_font('Helvetica', 'B', 18)
+        pdf.set_text_color(0, 51, 102)
+        pdf.cell(0, 12, "Reporte de Rendimiento", align=Align.C, new_y=YPos.NEXT)
+        
+        pdf.ln(30)
         pdf.set_font('Helvetica', 'I', 12)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 8, "Comparacion Multi-Solver de Solvers de Programacion Lineal", align=Align.C, new_y=YPos.NEXT)
         
         pdf.ln(30)
-        pdf.set_font('Helvetica', '', 11)
-        pdf.set_text_color(60, 60, 60)
-        
         summary = self.runner.get_summary()
-        pdf.cell(0, 8, f"Total de pruebas: {summary['total_benchmarks']}", align=Align.C, new_y=YPos.NEXT)
-        pdf.ln(5)
-        pdf.cell(0, 8, f"Exitosas: {summary['successful']}", align=Align.C, new_y=YPos.NEXT)
-        pdf.ln(5)
-        pdf.cell(0, 8, f"Fallidas: {summary['failed']}", align=Align.C, new_y=YPos.NEXT)
         
-        solvers = ", ".join(summary.get("by_solver", {}).keys())
+        total = summary.get('total_benchmarks', 0)
+        successful = summary.get('successful', 0)
+        success_rate = (successful / total * 100) if total > 0 else 0
+        
+        pdf.set_font('Helvetica', '', 14)
+        pdf.set_text_color(60, 60, 60)
+        pdf.cell(0, 10, f"Problemas evaluados: {total}", align=Align.C, new_y=YPos.NEXT)
         pdf.ln(5)
-        pdf.cell(0, 8, f"Solvers: {solvers}", align=Align.C, new_y=YPos.NEXT)
+        pdf.cell(0, 10, f"Solvers comparados: {len(summary.get('by_solver', {}))}", align=Align.C, new_y=YPos.NEXT)
+        pdf.ln(5)
+        pdf.cell(0, 10, f"Tasa de exito: {success_rate:.1f}%", align=Align.C, new_y=YPos.NEXT)
         
         pdf.ln(30)
+        fecha = datetime.now().strftime("%d de %B de %Y a las %H:%M")
         pdf.set_font('Helvetica', 'I', 10)
-        pdf.set_text_color(100, 100, 100)
-        fecha = datetime.now().strftime("%d de %B de %Y")
-        pdf.cell(0, 8, f"Fecha de generacion: {fecha}", align=Align.C, new_y=YPos.NEXT)
-        
-        pdf.ln(15)
-        pdf.set_draw_color(0, 51, 102)
-        pdf.set_line_width(1)
-        pdf.line(PAGE_WIDTH/2 - 25, pdf.get_y(), PAGE_WIDTH/2 + 25, pdf.get_y())
+        pdf.set_text_color(120, 120, 120)
+        pdf.cell(0, 8, f"Generado: {fecha}", align=Align.C, new_y=YPos.NEXT)
         
         pdf.set_text_color(0, 0, 0)
     
-    def _summary(self, pdf: BenchmarkPDF) -> None:
-        """Resumen por solver."""
-        self._header(pdf, "RESUMEN POR SOLVER")
+    def _summary_stats(self, pdf: BenchmarkPDF) -> None:
+        """Resumen estadistico completo."""
+        self._header(pdf, "RESUMEN ESTADISTICO")
         
         summary = self.runner.get_summary()
         
-        pdf.ln(3)
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 6, "Resultados por Solver:", new_x=XPos.LEFT, new_y=YPos.NEXT)
         pdf.ln(5)
+        pdf.set_font('Helvetica', 'B', 11)
+        pdf.set_text_color(0, 51, 102)
+        pdf.cell(0, 8, "Metricas Globales:", new_y=YPos.NEXT)
+        pdf.ln(3)
         
-        w = [45, 20, 20, 20, 30, 30, 35, 30]
-        total_w = sum(w)
-        x_start = MARGIN + (CONTENT_WIDTH - total_w) / 2
+        col_w = CONTENT_WIDTH / 4
+        
+        pdf.set_font('Helvetica', '', 10)
+        pdf.set_text_color(0, 0, 0)
+        
+        data = [
+            ("Total de pruebas", str(summary.get('total_benchmarks', 0))),
+            ("Exitosas", str(summary.get('successful', 0))),
+            ("Fallidas", str(summary.get('failed', 0))),
+            ("Tasa de exito", f"{(summary.get('successful', 0) / max(summary.get('total_benchmarks', 1), 1) * 100):.1f}%"),
+        ]
+        
+        pdf.set_x(MARGIN)
+        y_start = pdf.get_y()
+        for i, (label, value) in enumerate(data):
+            pdf.set_fill_color(245, 245, 245)
+            x_col = MARGIN + (i % 4) * col_w
+            pdf.rect(x_col, y_start, col_w - 2, 14, 'F')
+            pdf.set_xy(x_col + 2, y_start + 2)
+            pdf.set_font('Helvetica', 'B', 7)
+            pdf.cell(col_w - 4, 4, label, align='C')
+            pdf.set_xy(x_col + 2, y_start + 7)
+            pdf.set_font('Helvetica', '', 10)
+            pdf.cell(col_w - 4, 4, value, align='C')
+            if (i + 1) % 4 == 0:
+                pdf.ln(16)
+                pdf.set_x(MARGIN)
+                y_start += 16
+        
+        if len(data) % 4 != 0:
+            pdf.ln(16)
+        
+        pdf.ln(15)
+        
+        pdf.set_font('Helvetica', 'B', 11)
+        pdf.set_text_color(0, 51, 102)
+        pdf.cell(0, 8, "Ranking por Velocidad (tiempo promedio):", new_y=YPos.NEXT)
+        pdf.ln(3)
+        
+        solver_times = []
+        for solver, data in summary.get("by_solver", {}).items():
+            if data.get("successful", 0) > 0:
+                solver_times.append((solver, data.get("avg_time", 0) * 1000))
+        
+        solver_times.sort(key=lambda x: x[1])
+        
+        pdf.set_font('Helvetica', '', 10)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_x(MARGIN)
+        for rank, (solver, time_ms) in enumerate(solver_times, 1):
+            if rank == 1:
+                pdf.set_text_color(0, 128, 0)
+            elif rank == len(solver_times):
+                pdf.set_text_color(200, 0, 0)
+            else:
+                pdf.set_text_color(0, 0, 0)
+            
+            pdf.cell(15, 7, f"{rank}.", align=Align.R)
+            pdf.cell(60, 7, solver)
+            pdf.cell(50, 7, f"{time_ms:.2f} ms", align=Align.R)
+            
+            if rank == 1:
+                pdf.cell(0, 7, "(Mas rapido)", new_y=YPos.NEXT)
+            elif rank == len(solver_times):
+                pdf.cell(0, 7, "(Mas lento)", new_y=YPos.NEXT)
+            else:
+                pdf.ln(7)
+            pdf.set_x(MARGIN)
+        
+        pdf.ln(10)
+        
+        pdf.set_font('Helvetica', 'B', 11)
+        pdf.set_text_color(0, 51, 102)
+        pdf.cell(0, 8, "Tabla Comparativa:", new_y=YPos.NEXT)
+        pdf.ln(3)
+        
+        w = [40, 25, 25, 25, 35, 35]
+        cols = ["Solver", "Pruebas", "Exito", "Tiempo prom.", "Tiempo total", "Memoria peak"]
         
         pdf.set_fill_color(0, 51, 102)
-        pdf.rect(x_start, pdf.get_y(), total_w, 5, 'F')
         pdf.set_font('Helvetica', 'B', 7)
         pdf.set_text_color(255, 255, 255)
         
+        x_start = MARGIN + (CONTENT_WIDTH - sum(w)) / 2
+        pdf.rect(x_start, pdf.get_y(), sum(w), 5, 'F')
+        
         pdf.set_x(x_start)
-        pdf.cell(w[0], 5, "Solver", align=Align.C)
-        pdf.cell(w[1], 5, "Pruebas", align=Align.C)
-        pdf.cell(w[2], 5, "Exito", align=Align.C)
-        pdf.cell(w[3], 5, "Fallo", align=Align.C)
-        pdf.cell(w[4], 5, "Tiempo prom.", align=Align.C)
-        pdf.cell(w[5], 5, "Tiempo total", align=Align.C)
-        pdf.cell(w[6], 5, "Memoria prom.", align=Align.C)
-        pdf.cell(w[7], 5, "Memoria peak", align=Align.C)
+        for i, col in enumerate(cols):
+            pdf.cell(w[i], 5, col, align=Align.C)
         pdf.ln(5)
         
         pdf.set_font('Helvetica', '', 7)
         pdf.set_text_color(0, 0, 0)
         
         for solver, data in summary.get("by_solver", {}).items():
-            failed = data.get("runs", 0) - data.get("successful", 0)
             pdf.set_x(x_start)
-            pdf.cell(w[0], 5, solver, align=Align.C)
+            success_rate = data.get("successful", 0) / max(data.get("runs", 1), 1) * 100
+            
+            pdf.cell(w[0], 5, solver, align=Align.L)
             pdf.cell(w[1], 5, str(data.get("runs", 0)), align=Align.C)
-            pdf.cell(w[2], 5, str(data.get("successful", 0)), align=Align.C)
-            pdf.cell(w[3], 5, str(failed), align=Align.C)
-            avg_time = data.get("avg_time", 0) * 1000
-            pdf.cell(w[4], 5, f"{avg_time:.2f}ms", align=Align.C)
-            total_time = data.get("total_time", 0) * 1000
-            pdf.cell(w[5], 5, f"{total_time:.2f}ms", align=Align.C)
-            avg_mem = data.get("avg_memory", 0)
-            pdf.cell(w[6], 5, f"{avg_mem:.2f} MB", align=Align.C)
-            peak_mem = data.get("peak_memory", 0)
-            pdf.cell(w[7], 5, f"{peak_mem:.2f} MB", align=Align.C)
+            
+            if success_rate >= 100:
+                pdf.set_text_color(0, 128, 0)
+            elif success_rate >= 50:
+                pdf.set_text_color(200, 140, 0)
+            else:
+                pdf.set_text_color(200, 0, 0)
+            pdf.cell(w[2], 5, f"{success_rate:.0f}%", align=Align.C)
+            pdf.set_text_color(0, 0, 0)
+            
+            pdf.cell(w[3], 5, f"{data.get('avg_time', 0) * 1000:.2f}ms", align=Align.R)
+            pdf.cell(w[4], 5, f"{data.get('total_time', 0) * 1000:.2f}ms", align=Align.R)
+            pdf.cell(w[5], 5, f"{data.get('peak_memory', 0):.1f} MB", align=Align.R)
             pdf.ln(5)
         
-        pdf.ln(8)
+        pdf.set_text_color(0, 0, 0)
     
-    def _detailed(self, pdf: BenchmarkPDF) -> None:
-        """Resultados detallados."""
-        self._header(pdf, "RESULTADOS DETALLADOS")
+    def _solver_comparison(self, pdf: BenchmarkPDF) -> None:
+        """Comparacion detallada entre solvers."""
+        self._header(pdf, "COMPARACION DETALLADA POR SOLVER")
         
-        pdf.ln(3)
+        summary = self.runner.get_summary()
         
-        w = [30, 28, 22, 22, 18, 12, 12, 20, 20]
-        total_w = sum(w)
-        x_start = MARGIN + (CONTENT_WIDTH - total_w) / 2
-        
-        pdf.set_fill_color(0, 51, 102)
-        pdf.rect(x_start, pdf.get_y(), total_w, 5, 'F')
-        pdf.set_font('Helvetica', 'B', 6)
-        pdf.set_text_color(255, 255, 255)
-        
-        pdf.set_x(x_start)
-        pdf.cell(w[0], 5, "Problema", align=Align.C)
-        pdf.cell(w[1], 5, "Solver", align=Align.C)
-        pdf.cell(w[2], 5, "Estado", align=Align.C)
-        pdf.cell(w[3], 5, "Valor Obj", align=Align.C)
-        pdf.cell(w[4], 5, "Tiempo", align=Align.C)
-        pdf.cell(w[5], 5, "Iter", align=Align.C)
-        pdf.cell(w[6], 5, "Nodos", align=Align.C)
-        pdf.cell(w[7], 5, "Memoria", align=Align.C)
-        pdf.cell(w[8], 5, "Peak Mem", align=Align.C)
         pdf.ln(5)
         
-        pdf.set_font('Helvetica', '', 6)
-        pdf.set_text_color(0, 0, 0)
+        for solver, data in summary.get("by_solver", {}).items():
+            pdf.set_font('Helvetica', 'B', 12)
+            pdf.set_text_color(0, 51, 102)
+            pdf.cell(0, 8, solver.upper(), new_y=YPos.NEXT)
+            pdf.ln(2)
+            
+            pdf.set_line_width(0.5)
+            pdf.set_draw_color(0, 51, 102)
+            pdf.line(MARGIN, pdf.get_y(), PAGE_WIDTH - MARGIN, pdf.get_y())
+            pdf.ln(5)
+            
+            pdf.set_font('Helvetica', '', 9)
+            pdf.set_text_color(0, 0, 0)
+            
+            runs = data.get("runs", 0)
+            success = data.get("successful", 0)
+            
+            pdf.cell(50, 6, "Ejecuciones:")
+            pdf.cell(0, 6, str(runs), new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            
+            pdf.cell(50, 6, "Exitosas:")
+            if success == runs:
+                pdf.set_text_color(0, 128, 0)
+            elif success == 0:
+                pdf.set_text_color(200, 0, 0)
+            else:
+                pdf.set_text_color(200, 140, 0)
+            pdf.cell(0, 6, f"{success} ({success/runs*100:.1f}%)" if runs > 0 else "N/A", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            pdf.set_text_color(0, 0, 0)
+            
+            avg_time = data.get("avg_time", 0) * 1000
+            pdf.cell(50, 6, "Tiempo promedio:")
+            pdf.cell(0, 6, f"{avg_time:.3f} ms", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            
+            min_time = data.get("min_time", 0) * 1000
+            pdf.cell(50, 6, "Tiempo minimo:")
+            pdf.cell(0, 6, f"{min_time:.3f} ms", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            
+            max_time = data.get("max_time", 0) * 1000
+            pdf.cell(50, 6, "Tiempo maximo:")
+            pdf.cell(0, 6, f"{max_time:.3f} ms", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            
+            std_time = data.get("std_time", 0) * 1000
+            pdf.cell(50, 6, "Desv. estandar:")
+            pdf.cell(0, 6, f"{std_time:.3f} ms", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            
+            pdf.cell(50, 6, "Memoria promedio:")
+            pdf.cell(0, 6, f"{data.get('avg_memory', 0):.2f} MB", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            
+            pdf.cell(50, 6, "Memoria peak:")
+            pdf.cell(0, 6, f"{data.get('peak_memory', 0):.2f} MB", new_y=YPos.NEXT)
+            
+            pdf.ln(8)
         
-        for r in self.runner.results:
+        pdf.set_text_color(0, 0, 0)
+    
+    def _detailed_results(self, pdf: BenchmarkPDF) -> None:
+        """Resultados detallados por problema."""
+        self._header(pdf, "RESULTADOS DETALLADOS")
+        
+        pdf.ln(5)
+        
+        problems = sorted(set(r.problem_name for r in self.runner.results))
+        
+        for problem in problems:
+            pdf.set_font('Helvetica', 'B', 10)
+            pdf.set_text_color(0, 51, 102)
+            pdf.cell(0, 7, f"Problema: {problem}", new_y=YPos.NEXT)
+            pdf.ln(2)
+            
+            w = [35, 25, 25, 30, 25, 20, 20]
+            cols = ["Solver", "Estado", "Valor Obj", "Tiempo", "Memoria", "Iter", "Nodos"]
+            
+            pdf.set_fill_color(0, 51, 102)
+            pdf.set_font('Helvetica', 'B', 6)
+            pdf.set_text_color(255, 255, 255)
+            
+            x_start = MARGIN + (CONTENT_WIDTH - sum(w)) / 2
+            pdf.rect(x_start, pdf.get_y(), sum(w), 4, 'F')
+            
             pdf.set_x(x_start)
-            pdf.cell(w[0], 4, r.problem_name[:15], align=Align.L)
-            pdf.cell(w[1], 4, r.solver_name[:12], align=Align.L)
-            status = r.solution.status[:6] if r.solution else "N/A"
-            pdf.cell(w[2], 4, status, align=Align.C)
-            obj = f"{r.solution.objective_value:.2f}" if r.solution and r.solution.objective_value else "-"
-            pdf.cell(w[3], 4, obj, align=Align.R)
-            pdf.cell(w[4], 4, f"{r.total_time*1000:.1f}ms", align=Align.R)
-            iters = r.stats.iterations if r.stats else 0
-            pdf.cell(w[5], 4, str(iters), align=Align.C)
-            nodes = r.stats.nodes if r.stats else 0
-            pdf.cell(w[6], 4, str(nodes), align=Align.C)
-            mem = r.memory_used_mb if r.memory_used_mb else 0
-            pdf.cell(w[7], 4, f"{mem:.1f}MB", align=Align.R)
-            peak = r.peak_memory_mb if r.peak_memory_mb else 0
-            pdf.cell(w[8], 4, f"{peak:.1f}MB", align=Align.R)
+            for i, col in enumerate(cols):
+                pdf.cell(w[i], 4, col, align=Align.C)
             pdf.ln(4)
+            
+            pdf.set_font('Helvetica', '', 6)
+            pdf.set_text_color(0, 0, 0)
+            
+            solvers_in_problem = [r for r in self.runner.results if r.problem_name == problem]
+            
+            for r in solvers_in_problem:
+                pdf.set_x(x_start)
+                pdf.cell(w[0], 4, r.solver_name, align=Align.L)
+                
+                status = r.solution.status if r.solution else "N/A"
+                if status == "OPTIMAL":
+                    pdf.set_text_color(0, 128, 0)
+                elif status.startswith("ERROR"):
+                    pdf.set_text_color(200, 0, 0)
+                else:
+                    pdf.set_text_color(200, 140, 0)
+                pdf.cell(w[1], 4, status[:10], align=Align.C)
+                pdf.set_text_color(0, 0, 0)
+                
+                obj = f"{r.solution.objective_value:.2f}" if r.solution and r.solution.objective_value else "-"
+                pdf.cell(w[2], 4, obj, align=Align.R)
+                pdf.cell(w[3], 4, f"{r.total_time*1000:.2f}ms", align=Align.R)
+                
+                mem = f"{r.memory_used_mb:.1f}MB" if r.memory_used_mb else "-"
+                pdf.cell(w[4], 4, mem, align=Align.R)
+                
+                iters = str(r.stats.iterations) if r.stats and r.stats.iterations else "-"
+                pdf.cell(w[5], 4, iters, align=Align.C)
+                
+                nodes = str(r.stats.nodes) if r.stats and r.stats.nodes else "-"
+                pdf.cell(w[6], 4, nodes, align=Align.C)
+                pdf.ln(4)
+            
+            pdf.ln(5)
+        
+        pdf.set_text_color(0, 0, 0)
+    
+    def _problem_definitions(self, pdf: BenchmarkPDF) -> None:
+        """Definiciones de problemas evaluados."""
+        self._header(pdf, "DEFINICIONES DE PROBLEMAS")
+        
+        pdf.ln(5)
+        
+        problems = {}
+        for r in self.runner.results:
+            if r.problem_name not in problems and r.problem_text:
+                problems[r.problem_name] = r.problem_text
+        
+        for problem_name, problem_text in problems.items():
+            pdf.set_font('Helvetica', 'B', 10)
+            pdf.set_text_color(0, 51, 102)
+            pdf.cell(0, 7, f"Problema: {problem_name}", new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
+            pdf.ln(3)
+            
+            pdf.set_font('Courier', '', 7)
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_fill_color(248, 248, 248)
+            
+            lines = problem_text.strip().split('\n')[:12]
+            for line in lines:
+                pdf.cell(0, 4, line, new_y=YPos.NEXT)
+                pdf.set_x(MARGIN)
+            
+            pdf.ln(5)
+        
+        pdf.set_text_color(0, 0, 0)
     
     def _charts(self, pdf: BenchmarkPDF) -> None:
         """Graficos comparativos."""
         self._header(pdf, "GRAFICOS COMPARATIVOS")
         
-        import matplotlib
-        matplotlib.use('Agg')
-        import matplotlib.pyplot as plt
-        import numpy as np
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+        except ImportError:
+            pdf.set_font('Helvetica', 'I', 10)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(0, 6, "Graficos no disponibles (matplotlib no instalado).", new_y=YPos.NEXT)
+            return
         
         summary = self.runner.get_summary()
         solvers = list(summary.get("by_solver", {}).keys())
@@ -229,58 +440,71 @@ class BenchmarkReport:
         if not solvers:
             pdf.set_font('Helvetica', 'I', 10)
             pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 6, "No hay suficientes datos para graficar.", new_x=XPos.LEFT, new_y=YPos.NEXT)
+            pdf.cell(0, 6, "No hay datos para graficar.", new_y=YPos.NEXT)
             return
         
-        fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-        fig.suptitle('Analisis Comparativo de Solvers', fontsize=14, fontweight='bold')
-        
-        x_pos = np.arange(len(solvers))
-        
-        times = [summary["by_solver"][s].get("avg_time", 0) * 1000 for s in solvers]
-        colors = ['#003366', '#1E90FF', '#228B22', '#8B0000', '#4B0082'][:len(solvers)]
-        axes[0, 0].bar(x_pos, times, color=colors)
-        axes[0, 0].set_xticks(x_pos)
-        axes[0, 0].set_xticklabels(solvers, rotation=45, ha='right')
-        axes[0, 0].set_ylabel('Tiempo (ms)')
-        axes[0, 0].set_title('Tiempo Promedio por Solver')
-        axes[0, 0].grid(axis='y', alpha=0.3)
-        
-        success = [summary["by_solver"][s].get("successful", 0) for s in solvers]
-        runs = [summary["by_solver"][s].get("runs", 1) for s in solvers]
-        success_rate = [s/r*100 if r > 0 else 0 for s, r in zip(success, runs)]
-        axes[0, 1].bar(x_pos, success_rate, color=colors)
-        axes[0, 1].set_xticks(x_pos)
-        axes[0, 1].set_xticklabels(solvers, rotation=45, ha='right')
-        axes[0, 1].set_ylabel('Tasa de Exito (%)')
-        axes[0, 1].set_title('Tasa de Exito por Solver')
-        axes[0, 1].set_ylim(0, 110)
-        axes[0, 1].grid(axis='y', alpha=0.3)
-        
-        total_times = [summary["by_solver"][s].get("total_time", 0) * 1000 for s in solvers]
-        axes[1, 0].bar(x_pos, total_times, color=colors)
-        axes[1, 0].set_xticks(x_pos)
-        axes[1, 0].set_xticklabels(solvers, rotation=45, ha='right')
-        axes[1, 0].set_ylabel('Tiempo Total (ms)')
-        axes[1, 0].set_title('Tiempo Total por Solver')
-        axes[1, 0].grid(axis='y', alpha=0.3)
-        
-        iterations = []
-        for s in solvers:
-            data = summary["by_solver"][s]
-            iters = data.get("total_iterations", 0)
-            runs = data.get("runs", 1)
-            iterations.append(iters / runs if runs > 0 else 0)
-        axes[1, 1].bar(x_pos, iterations, color=colors)
-        axes[1, 1].set_xticks(x_pos)
-        axes[1, 1].set_xticklabels(solvers, rotation=45, ha='right')
-        axes[1, 1].set_ylabel('Iteraciones')
-        axes[1, 1].set_title('Iteraciones Promedio')
-        axes[1, 1].grid(axis='y', alpha=0.3)
-        
-        plt.tight_layout()
-        
         try:
+            fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+            fig.suptitle('Analisis Comparativo de Solvers - ISLA LP Benchmark', 
+                       fontsize=14, fontweight='bold', y=0.98)
+            
+            x_pos = np.arange(len(solvers))
+            colors = ['#003366', '#1E90FF', '#228B22', '#8B0000', '#4B0082', '#FF8C00'][:len(solvers)]
+            
+            times = [summary["by_solver"][s].get("avg_time", 0) * 1000 for s in solvers]
+            bars = axes[0, 0].bar(x_pos, times, color=colors, edgecolor='white', linewidth=0.5)
+            axes[0, 0].set_xticks(x_pos)
+            axes[0, 0].set_xticklabels(solvers, rotation=45, ha='right')
+            axes[0, 0].set_ylabel('Tiempo (ms)')
+            axes[0, 0].set_title('Tiempo Promedio por Solver')
+            axes[0, 0].grid(axis='y', alpha=0.3)
+            
+            for bar, t in zip(bars, times):
+                axes[0, 0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
+                              f'{t:.1f}', ha='center', va='bottom', fontsize=8)
+            
+            success = [summary["by_solver"][s].get("successful", 0) for s in solvers]
+            runs = [summary["by_solver"][s].get("runs", 1) for s in solvers]
+            success_rate = [s/r*100 if r > 0 else 0 for s, r in zip(success, runs)]
+            bars = axes[0, 1].bar(x_pos, success_rate, color=colors, edgecolor='white', linewidth=0.5)
+            axes[0, 1].set_xticks(x_pos)
+            axes[0, 1].set_xticklabels(solvers, rotation=45, ha='right')
+            axes[0, 1].set_ylabel('Tasa de Exito (%)')
+            axes[0, 1].set_title('Tasa de Exito por Solver')
+            axes[0, 1].set_ylim(0, 110)
+            axes[0, 1].axhline(y=100, color='green', linestyle='--', alpha=0.5, label='100%')
+            axes[0, 1].grid(axis='y', alpha=0.3)
+            
+            for bar, sr in zip(bars, success_rate):
+                axes[0, 1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2, 
+                              f'{sr:.0f}%', ha='center', va='bottom', fontsize=8)
+            
+            total_times = [summary["by_solver"][s].get("total_time", 0) * 1000 for s in solvers]
+            bars = axes[1, 0].bar(x_pos, total_times, color=colors, edgecolor='white', linewidth=0.5)
+            axes[1, 0].set_xticks(x_pos)
+            axes[1, 0].set_xticklabels(solvers, rotation=45, ha='right')
+            axes[1, 0].set_ylabel('Tiempo Total (ms)')
+            axes[1, 0].set_title('Tiempo Total Acumulado')
+            axes[1, 0].grid(axis='y', alpha=0.3)
+            
+            for bar, t in zip(bars, total_times):
+                axes[1, 0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
+                              f'{t:.1f}', ha='center', va='bottom', fontsize=8)
+            
+            memory = [summary["by_solver"][s].get("peak_memory", 0) for s in solvers]
+            bars = axes[1, 1].bar(x_pos, memory, color=colors, edgecolor='white', linewidth=0.5)
+            axes[1, 1].set_xticks(x_pos)
+            axes[1, 1].set_xticklabels(solvers, rotation=45, ha='right')
+            axes[1, 1].set_ylabel('Memoria (MB)')
+            axes[1, 1].set_title('Peak de Memoria por Solver')
+            axes[1, 1].grid(axis='y', alpha=0.3)
+            
+            for bar, m in zip(bars, memory):
+                axes[1, 1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
+                              f'{m:.1f}', ha='center', va='bottom', fontsize=8)
+            
+            plt.tight_layout()
+            
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
                 plt.savefig(tmp.name, dpi=150, bbox_inches='tight', facecolor='white')
                 tmp_path = tmp.name
@@ -293,7 +517,7 @@ class BenchmarkReport:
             pdf.ln(5)
             pdf.set_font('Helvetica', 'I', 9)
             pdf.set_text_color(150, 0, 0)
-            pdf.cell(0, 5, f"No se pudieron generar los graficos: {str(e)}", new_x=XPos.LEFT, new_y=YPos.NEXT)
+            pdf.cell(0, 5, f"No se pudieron generar los graficos: {str(e)}", new_y=YPos.NEXT)
         
         pdf.set_text_color(0, 0, 0)
     
@@ -301,35 +525,27 @@ class BenchmarkReport:
         """Informacion del sistema."""
         self._header(pdf, "INFORMACION DEL SISTEMA")
         
-        pdf.ln(3)
+        pdf.ln(5)
         p = self.system_info.get("platform", {})
         
         pdf.set_font('Helvetica', 'B', 10)
         pdf.set_text_color(0, 0, 0)
-        pdf.cell(0, 6, "Plataforma:", new_x=XPos.LEFT, new_y=YPos.NEXT)
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(60, 60, 60)
-        pdf.cell(0, 6, f"{p.get('system', 'N/A')} {p.get('release', '')}", new_x=XPos.LEFT, new_y=YPos.NEXT)
+        fields = [
+            ("Sistema", f"{p.get('system', 'N/A')} {p.get('release', '')}"),
+            ("Maquina", p.get('machine', 'N/A')),
+            ("Procesador", p.get('processor', 'N/A')[:60]),
+            ("Python", p.get('python_version', 'N/A')),
+            ("Hostname", self.system_info.get('hostname', 'N/A')),
+            ("Fecha", self.system_info.get('timestamp', 'N/A')[:19]),
+        ]
         
-        pdf.ln(8)
-        pdf.set_font('Helvetica', 'B', 10)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(50, 6, "Maquina:", new_x=XPos.LEFT)
-        pdf.set_font('Helvetica', '', 10)
-        pdf.set_text_color(60, 60, 60)
-        pdf.cell(0, 6, p.get('machine', 'N/A'), new_x=XPos.LEFT, new_y=YPos.NEXT)
-        
-        pdf.cell(50, 6, "Procesador:", new_x=XPos.LEFT)
-        pdf.cell(0, 6, p.get('processor', 'N/A')[:60], new_x=XPos.LEFT, new_y=YPos.NEXT)
-        
-        pdf.cell(50, 6, "Python:", new_x=XPos.LEFT)
-        pdf.cell(0, 6, p.get('python_version', 'N/A'), new_x=XPos.LEFT, new_y=YPos.NEXT)
-        
-        pdf.cell(50, 6, "Hostname:", new_x=XPos.LEFT)
-        pdf.cell(0, 6, self.system_info.get('hostname', 'N/A'), new_x=XPos.LEFT, new_y=YPos.NEXT)
-        
-        pdf.cell(50, 6, "Fecha:", new_x=XPos.LEFT)
-        pdf.cell(0, 6, self.system_info.get('timestamp', 'N/A')[:19], new_x=XPos.LEFT, new_y=YPos.NEXT)
+        for label, value in fields:
+            pdf.set_font('Helvetica', 'B', 9)
+            pdf.cell(40, 6, label + ":")
+            pdf.set_font('Helvetica', '', 9)
+            pdf.set_text_color(60, 60, 60)
+            pdf.cell(0, 6, value, new_y=YPos.NEXT)
+            pdf.set_x(MARGIN)
         
         pdf.set_text_color(0, 0, 0)
     
@@ -337,9 +553,9 @@ class BenchmarkReport:
         """Encabezado de seccion."""
         pdf.set_font('Helvetica', 'B', 14)
         pdf.set_text_color(0, 51, 102)
-        pdf.cell(0, 8, title, align=Align.C, new_y=YPos.NEXT)
-        pdf.ln(4)
+        pdf.cell(0, 10, title, align=Align.C, new_y=YPos.NEXT)
+        pdf.ln(2)
         pdf.set_line_width(0.5)
         pdf.set_draw_color(0, 51, 102)
         pdf.line(MARGIN, pdf.get_y(), PAGE_WIDTH - MARGIN, pdf.get_y())
-        pdf.ln(4)
+        pdf.ln(5)

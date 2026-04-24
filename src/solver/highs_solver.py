@@ -21,6 +21,8 @@ class HiGHSSolver(BaseSolver):
         self.config = config or self.Config()
         self._solution: Optional[Solution] = None
         self._linear_problem: Optional[LinearProblem] = None
+        self._iterations = 0
+        self._nodes = 0
     
     @property
     def solver_name(self) -> str:
@@ -124,6 +126,13 @@ class HiGHSSolver(BaseSolver):
                 variables=variables,
             )
             
+            self._iterations = 0
+            try:
+                info = hp.getInfo()
+                self._iterations = getattr(info, 'simplex_iterations', 0) or 0
+            except:
+                pass
+            
             return self._solution
             
         except Exception as e:
@@ -135,4 +144,7 @@ class HiGHSSolver(BaseSolver):
     
     def get_stats(self) -> SolverStats:
         """Obtiene estadisticas de la resolucion."""
-        return SolverStats()
+        return SolverStats(
+            iterations=self._iterations,
+            nodes=self._nodes
+        )

@@ -159,11 +159,13 @@ class LPAnalysis:
         
         pdf.set_font('Helvetica', '', 9)
         pdf.set_text_color(0, 0, 0)
+        pdf.set_x(MARGIN)
         pdf.cell(col_width, 5, f"Tipo: {'MAX' if self.problem.sense.lower() == 'max' else 'MIN'}")
         pdf.cell(col_width, 5, f"Variables: {len(self.problem.variables)}")
         pdf.cell(col_width, 5, f"Restricciones: {len(self.problem.constraints)}")
         pdf.ln(5)
         
+        pdf.set_x(MARGIN)
         pdf.cell(col_width, 5, "Estado:")
         if self.solution.status == 'OPTIMAL':
             pdf.set_text_color(0, 128, 0)
@@ -174,6 +176,7 @@ class LPAnalysis:
         pdf.set_text_color(0, 0, 0)
         pdf.ln(5)
         
+        pdf.set_x(MARGIN)
         pdf.cell(col_width, 5, "Valor optimo:")
         pdf.set_text_color(0, 0, 150)
         if self.solution.objective_value is not None:
@@ -200,19 +203,22 @@ class LPAnalysis:
         
         pdf.set_font('Helvetica', '', 7)
         pdf.set_text_color(60, 60, 60)
-        
+        pdf.set_x(MARGIN)
         pdf.cell(half_width, 4, f"Solver: {self.solver_name}")
         pdf.cell(half_width, 4, f"Python: {p.get('python_version', sys.version.split()[0])}")
         pdf.ln(4)
         
+        pdf.set_x(MARGIN)
         pdf.cell(half_width, 4, f"Sistema: {p.get('system', platform.system())} {p.get('release', platform.release())}")
         pdf.cell(half_width, 4, f"Procesador: {p.get('processor', platform.processor())}")
         pdf.ln(4)
         
+        pdf.set_x(MARGIN)
         pdf.cell(half_width, 4, f"Arquitectura: {p.get('machine', platform.machine())}")
         pdf.cell(half_width, 4, f"Hostname: {self.system_info.get('hostname', platform.node())}")
         pdf.ln(4)
         
+        pdf.set_x(MARGIN)
         pdf.cell(half_width, 4, f"Fecha: {self.system_info.get('timestamp', datetime.now().isoformat())[:19]}")
         pdf.ln(5)
         
@@ -246,18 +252,21 @@ class LPAnalysis:
         
         pdf.set_font('Helvetica', '', 7)
         pdf.set_text_color(0, 0, 0)
+        pdf.set_x(MARGIN)
         
         for stage, time_val in times_data:
             if time_val > 0:
                 pdf.cell(col1, 4, stage)
                 pdf.cell(col2, 4, f"{time_val:.4f}", align=Align.R)
                 pdf.ln(4)
+                pdf.set_x(MARGIN)
         
         pdf.set_font('Helvetica', 'B', 7)
         pdf.set_draw_color(0, 51, 102)
         pdf.line(MARGIN + 3, pdf.get_y(), PAGE_WIDTH - MARGIN - 3, pdf.get_y())
         pdf.ln(2)
         
+        pdf.set_x(MARGIN)
         pdf.cell(col1, 4, "TOTAL")
         pdf.cell(col2, 4, f"{self.times.total_time:.4f}", align=Align.R)
         pdf.ln(5)
