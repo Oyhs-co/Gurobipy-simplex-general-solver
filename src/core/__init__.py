@@ -5,7 +5,6 @@ Core classes for the linear programming solver.
 from .problem import LinearProblem
 from .solution import (
     Solution,
-    SensitivityInfo,
     ProgressPoint,
     NumericalQuality,
     SolutionTable,
@@ -34,7 +33,6 @@ from .exceptions import (
 __all__ = [
     "LinearProblem",
     "Solution",
-    "SensitivityInfo",
     "ProgressPoint",
     "NumericalQuality",
     "SolutionTable",

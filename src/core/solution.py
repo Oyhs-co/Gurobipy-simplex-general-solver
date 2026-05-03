@@ -2,11 +2,14 @@ from dataclasses import dataclass, field
 from typing import Optional, Any
 from .constants import OPTIMALITY_TOLERANCE
 
-@dataclass
-class SensitivityInfo:
-    """Información de análisis de sensibilidad."""
-    objective_coefficients: Any = None  # DataFrame with var, current, min, max
-    rhs: Any = None  # DataFrame with constraint, current, min, max
+# Import sensitivity analysis if available
+try:
+    from ..analysis.sensitivity import SensitivityAnalysis, SensitivityRange
+    SENSITIVITY_AVAILABLE = True
+except ImportError:
+    SENSITIVITY_AVAILABLE = False
+    SensitivityAnalysis = None
+    SensitivityRange = None
 
 
 @dataclass
@@ -54,7 +57,7 @@ class Solution:
     iterations: int = 0
     nodes: int = 0
     # NUEVOS CAMPOS PARA MILP Y SENSIBILIDAD
-    sensitivity: Optional[SensitivityInfo] = None
+    sensitivity: Optional[Any] = None
     iis: Optional[list[str]] = None
     basis: Optional[dict[str, str]] = None
     progress_log: Optional[list[ProgressPoint]] = None
@@ -79,10 +82,10 @@ class Solution:
     def print_summary(self, verbose: bool = False) -> str:
         """
         Genera un resumen formateado de la solución.
-
+        
         Args:
             verbose: Si es True, incluye valores duales y costos reducidos.
-
+        
         Returns:
             str: Cadena formateada con el resumen de la solución.
         """
@@ -136,9 +139,13 @@ class SolutionTable:
     basis: Any = None  # pl.DataFrame: variable, status
 
 
-def to_solution_table(solution: Solution, problem: LinearProblem) -> SolutionTable:
+def to_solution_table(solution: Solution, problem: Any) -> SolutionTable:
     """Convierte una Solution en SolutionTable (tabular)."""
     import polars as pl
+    from .problem import LinearProblem as LP
+    
+    if not isinstance(problem, LP):
+        return SolutionTable()
     
     # Variables table
     var_data = []
