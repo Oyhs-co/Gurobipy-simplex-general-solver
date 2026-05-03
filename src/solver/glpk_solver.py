@@ -10,40 +10,38 @@ from ctypes import POINTER, c_int, c_double
 import swiglpk
 
 from ..core import LinearProblem, Solution
-from ..matrix import PolarsLP
+from ..matrix import LPBuilder
 from .base import BaseSolver, SolverStats
 
 
 class GLPKSolver(BaseSolver):
     """Solver GLPK para problemas de programacion lineal."""
     
-    def __init__(self, model: PolarsLP, config: Optional[BaseSolver.Config] = None):
-        self.model = model
-        self.config = config or self.Config()
+    def __init__(self, problem: LinearProblem, config: Optional[BaseSolver.Config] = None):
+        super().__init__(problem, config)
         self._solution: Optional[Solution] = None
-        self._linear_problem: Optional[LinearProblem] = None
         self._iterations = 0
         self._nodes = 0
+        self._lp = None  # Lazy loading
     
     @property
     def solver_name(self) -> str:
         return "glpk"
     
+    @property
     def solver_version(self) -> str:
         return "swiglpk"
     
-    def set_problem(self, problem: LinearProblem) -> None:
-        """Establece el problema a resolver."""
-        self._linear_problem = problem
+    @property
+    def lp(self):
+        """Get PolarsLP representation (lazy build)."""
+        if self._lp is None:
+            self._lp = LPBuilder(self.problem).build()
+        return self._lp
     
     def solve(self) -> Solution:
         """Resuelve el problema."""
-        problem = self._linear_problem
-        
-        if problem is None and self.model is not None:
-            from ..matrix import LPBuilder
-            lp_builder = LPBuilder(self.model)
-            problem = lp_builder._problem
+        problem = self.problem  # From BaseSolver
         
         if problem is None:
             return Solution(

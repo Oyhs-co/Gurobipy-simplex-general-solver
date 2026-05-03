@@ -10,34 +10,37 @@ import pulp
 from pulp import LpProblem, LpVariable, LpMinimize, LpMaximize, LpBinary, LpContinuous, LpStatus
 
 from ..core import LinearProblem, Solution, VariableBound
-from ..matrix import PolarsLP
+from ..matrix import LPBuilder
 from .base import BaseSolver, SolverStats
 
 
 class CBCSolver(BaseSolver):
     """Solver CBC para problemas de programacion lineal."""
     
-    def __init__(self, model: PolarsLP, config: Optional[BaseSolver.Config] = None):
-        self.model = model
-        self.config = config or self.Config()
+    def __init__(self, problem: LinearProblem, config: Optional[BaseSolver.Config] = None):
+        super().__init__(problem, config)
         self._solution: Optional[Solution] = None
-        self._problem_obj: Optional[LinearProblem] = None
         self._iterations = 0
         self._nodes = 0
+        self._lp = None  # Lazy loading
     
     @property
     def solver_name(self) -> str:
         return "cbc"
     
+    @property
     def solver_version(self) -> str:
         try:
             return f"PuLP {pulp.__version__}"
         except:
             return "PuLP"
     
-    def set_problem(self, problem: LinearProblem) -> None:
-        """Establece el problema a resolver."""
-        self._problem_obj = problem
+    @property
+    def lp(self):
+        """Get PolarsLP representation (lazy build)."""
+        if self._lp is None:
+            self._lp = LPBuilder(self.problem).build()
+        return self._lp
     
     def _build_problem(self, problem: LinearProblem) -> 'LpProblem':
         """Construye el problema PuLP."""
@@ -85,7 +88,7 @@ class CBCSolver(BaseSolver):
     
     def solve(self) -> Solution:
         """Resuelve el problema."""
-        if self._problem_obj is None:
+        if self.problem is None:
             return Solution(
                 status="ERROR: No problem set",
                 objective_value=None,
@@ -95,7 +98,7 @@ class CBCSolver(BaseSolver):
         start_time = time.perf_counter()
         
         try:
-            prob = self._build_problem(self._problem_obj)
+            prob = self._build_problem(self.problem)
             
             solver = pulp.PULP_CBC_CMD(msg=self.config.verbose)
             

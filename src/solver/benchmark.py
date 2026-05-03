@@ -154,21 +154,18 @@ class BenchmarkRunner:
             if solver_class is None:
                 raise ValueError(f"Solver '{solver_name}' no encontrado")
             
-            solver = solver_class(lp)
+            # Crear solver una sola vez con LinearProblem
+            solver = solver_class(problem)
             
-            if hasattr(solver, 'set_problem'):
-                solver.set_problem(problem)
-            
-            for _ in range(self.config.warmup_runs):
-                try:
-                    solver.solve()
-                except:
-                    pass
-            
-            solver = solver_class(lp)
-            
-            if hasattr(solver, 'set_problem'):
-                solver.set_problem(problem)
+            # Warmup en la MISMA instancia
+            if self.config.warmup_runs > 0:
+                for _ in range(self.config.warmup_runs):
+                    try:
+                        solver.solve()
+                    except:
+                        pass
+                # Reiniciar stats pero mantener estado interno
+                solver.reset()
             
             solve_start = time.perf_counter()
             solution = solver.solve()

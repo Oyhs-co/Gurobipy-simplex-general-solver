@@ -17,7 +17,14 @@ try:
     from .highs_solver import HiGHSSolver
     SolverRegistry.register("highs", HiGHSSolver, available=True)
 except ImportError as e:
-    from .highs_solver import HiGHSSolver
+    import sys
+    import types
+    # Create a dummy class to avoid import errors
+    dummy = types.ModuleType("highs_solver_dummy")
+    class HiGHSSolver:
+        pass
+    HiGHSSolver.solver_name = "highs"
+    HiGHSSolver.__name__ = "HiGHSSolver"
     SolverRegistry.register("highs", HiGHSSolver, available=False)
     SolverRegistry.set_unavailable("highs", f"highspy not available: {e}")
 
@@ -25,7 +32,11 @@ try:
     from .glpk_solver import GLPKSolver
     SolverRegistry.register("glpk", GLPKSolver, available=True)
 except ImportError as e:
-    from .glpk_solver import GLPKSolver
+    import types
+    class GLPKSolver:
+        pass
+    GLPKSolver.solver_name = "glpk"
+    GLPKSolver.__name__ = "GLPKSolver"
     SolverRegistry.register("glpk", GLPKSolver, available=False)
     SolverRegistry.set_unavailable("glpk", f"swiglpk not available: {e}")
 
@@ -38,7 +49,11 @@ try:
         SolverRegistry.register("cbc", CBCSolver, available=False)
         SolverRegistry.set_unavailable("cbc", "PULP_CBC_CMD not found")
 except ImportError as e:
-    from .cbc import CBCSolver
+    import types
+    class CBCSolver:
+        pass
+    CBCSolver.solver_name = "cbc"
+    CBCSolver.__name__ = "CBCSolver"
     SolverRegistry.register("cbc", CBCSolver, available=False)
     SolverRegistry.set_unavailable("cbc", f"not available: {e}")
 

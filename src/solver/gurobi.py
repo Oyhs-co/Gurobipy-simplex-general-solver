@@ -8,8 +8,8 @@ from typing import Optional
 import gurobipy as gp
 from gurobipy import GRB
 
-from ..matrix import PolarsLP
-from ..core import Solution
+from ..matrix import LPBuilder
+from ..core import Solution, LinearProblem
 from .base import BaseSolver, SolverStats, register_solver
 
 
@@ -19,7 +19,7 @@ class GurobiSolver(BaseSolver):
     Solver de programacion lineal usando Gurobi Optimizer.
     
     ### atributos:
-    - lp: PolarsLP - El problema de PL a resolver.
+    - problem: LinearProblem - El problema de PL a resolver.
     - model: gp.Model - El modelo de Gurobi.
     - config: GurobiConfig - Configuracion del solver.
     """
@@ -32,22 +32,29 @@ class GurobiSolver(BaseSolver):
         display_interval: int = 1
         numeric_focus: int = 0
     
-    def __init__(self, lp: PolarsLP, config: Optional[Config] = None):
+    def __init__(self, problem: LinearProblem, config: Optional[Config] = None):
         """
         Inicializa el solver con un problema de PL.
         
         Args:
-            lp: PolarsLP - El problema de PL a resolver.
-            config: GurobiConfig - Configuracion del solver (default: config por defecto).
+            problem: LinearProblem - El problema de PL a resolver.
+            config: GurobiConfig - Configuración del solver (default: config por defecto).
         """
-        super().__init__(config)
+        super().__init__(problem, config=config)
         self._solver_name = "Gurobi"
-        self.lp = lp
         self.config = config or self.Config()
         self.model = gp.Model("LP")
         self._apply_config()
         self.iis_constraints: list[str] = []
         self.iis_variables: list[str] = []
+        self._lp = None  # Lazy loading of PolarsLP if needed
+    
+    @property
+    def lp(self):
+        """Get PolarsLP representation (lazy build)."""
+        if self._lp is None:
+            self._lp = LPBuilder(self.problem).build()
+        return self._lp
     
     @property
     def solver_version(self) -> str:

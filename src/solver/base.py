@@ -7,12 +7,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional, Any
 
-from ..core import Solution
+from ..core import Solution, LinearProblem
 
 
 @dataclass
 class SolverStats:
-    """Estadisticas de la ejecucion del solver."""
+    """Estadísticas de la ejecución del solver."""
     solve_time: float = 0.0
     build_time: float = 0.0
     iterations: int = 0
@@ -25,28 +25,31 @@ class SolverStats:
 
 class BaseSolver(ABC):
     """
-    Clase base abstracta para solvers de programacion lineal.
+    Clase base abstracta para solvers de programación lineal.
     
-    Define la interfaz comun que todos los solvers deben implementar.
+    Define la interfaz común que todos los solvers deben implementar.
+    Todos los solvers deben aceptar LinearProblem en su constructor.
     """
     
     @dataclass
     class Config:
-        """Configuracion base del solver."""
+        """Configuración base del solver."""
         verbose: bool = False
         time_limit: Optional[float] = None
         mip_gap: Optional[float] = None
         threads: Optional[int] = None
-        presolve: bool = True
+        presolve: int = 1  # 1=auto, 0=off, -1=conservative (flexible para solvers)
         seed: Optional[int] = None
     
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, problem: LinearProblem, config: Optional[Config] = None):
         """
-        Inicializa el solver con la configuracion proporcionada.
+        Inicializa el solver con el problema y configuración proporcionados.
         
         Args:
-            config: Configuracion del solver. Si es None, usa configuracion por defecto.
+            problem: El problema LP a resolver
+            config: Configuración del solver. Si es None, usa configuración por defecto.
         """
+        self.problem = problem
         self.config = config or self.Config()
         self.stats = SolverStats()
         self._solver_name = "BaseSolver"

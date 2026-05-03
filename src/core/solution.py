@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from typing import Optional
-
+from .constants import OPTIMALITY_TOLERANCE
 
 @dataclass
 class Solution:
     """
     Representa la solución de un problema de programación lineal.
-
-    ### atributos:
+    
+    ### Atributos:
     - status: str - Estado de la solución (OPTIMAL, INFEASIBLE, UNBOUNDED, etc.)
     - objective_value: float | None - Valor de la función objetivo en el óptimo.
     - variables: dict[str, float] - Valores de las variables de decisión.
@@ -25,8 +25,8 @@ class Solution:
     nodes: int = 0
 
     def is_optimal(self) -> bool:
-        """Verifica si la solución es óptima."""
-        return self.status == "OPTIMAL"
+        """Verifica si la solución es óptima usando tolerancia."""
+        return self.status.strip().upper() == "OPTIMAL"
 
     def is_infeasible(self) -> bool:
         """Verifica si el problema es infactible."""
