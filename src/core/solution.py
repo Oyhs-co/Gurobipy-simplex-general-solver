@@ -65,7 +65,8 @@ class Solution:
 
     def is_optimal(self) -> bool:
         """Verifica si la solución es óptima usando tolerancia."""
-        return self.status.strip().upper() == "OPTIMAL"
+        status_upper = self.status.strip().upper()
+        return status_upper == "OPTIMAL" or status_upper == "OPTIMAL (TOLERANCE)"
 
     def is_infeasible(self) -> bool:
         """Verifica si el problema es infactible."""

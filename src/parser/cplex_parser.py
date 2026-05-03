@@ -149,7 +149,11 @@ class CPLEXParser:
                         lower = float(parts[0])
                         var = parts[1].strip()
                         upper = float(parts[2])
-                        bounds[var] = VariableBound(var, lower=lower, upper=upper)
+                        if var in bounds:
+                            bounds[var].lower = lower
+                            bounds[var].upper = upper
+                        else:
+                            bounds[var] = VariableBound(var, lower=lower, upper=upper)
                 
                 elif ">=" in line_clean:
                     # Format: var>=val or val>=var

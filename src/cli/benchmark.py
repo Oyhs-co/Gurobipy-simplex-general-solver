@@ -11,9 +11,7 @@ from src.parser import LPParser, MultiLPParser
 from src.solver import (
     BenchmarkRunner, BenchmarkConfig, SolverRegistry
 )
-from src.analysis.benchmark_results import (
-    BenchmarkVisualizer, export_benchmark_results
-)
+from src.analysis import export_benchmark_results, ResultsExporter
 from src.cli import get_system_info
 
 

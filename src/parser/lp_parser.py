@@ -100,10 +100,19 @@ class LPParser:
         if len(parts) != 2:
             raise ValueError(f"Función objetivo inválida: {line}")
 
-        sense = parts[0].replace(":", "").lower()
-
-        if sense not in {"max", "min"}:
-            raise ValueError(f"Dirección de optimización inválida: {sense}")
+        sense = parts[0].replace(":", "").lower().strip()
+        
+        # Manejar variaciones de "max" y "min"
+        sense_clean = sense.replace("imize", "").replace("imizar", "").strip()
+        
+        if sense_clean not in {"max", "min"}:
+            # Buscar coincidencia parcial
+            if "max" in sense.lower():
+                sense = "max"
+            elif "min" in sense.lower():
+                sense = "min"
+            else:
+                raise ValueError(f"Dirección de optimización inválida: {sense}")
 
         expr = parts[1]
 

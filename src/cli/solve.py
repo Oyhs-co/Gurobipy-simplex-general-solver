@@ -49,7 +49,8 @@ def solve_single(
         
         config = SolverConfig(verbose=verbose)
         start_solve = time.perf_counter()
-        solver = SolverLP(lp, config)
+        # Pass LinearProblem to solver, not PolarsLP
+        solver = SolverLP(problem, config)
         solution = solver.solve()
         solve_time = time.perf_counter() - start_solve
         

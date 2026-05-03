@@ -5,9 +5,13 @@ Proporciona una interfaz comun para diferentes implementaciones de solvers.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 from ..core import Solution, LinearProblem
+from ..core.solution import ProgressPoint as PP
+
+# Alias for type hints
+ProgressPoint = PP
 
 
 @dataclass
