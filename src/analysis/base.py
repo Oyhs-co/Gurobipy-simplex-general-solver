@@ -2,9 +2,12 @@
 Base classes for analysis and reporting.
 Provides common interface for report generation.
 """
+
 from abc import ABC, abstractmethod
 from typing import Optional, Any
-from ..core import Solution, LinearProblem
+
+# Absolute imports
+from src.core import Solution, LinearProblem
 
 
 class BaseReport(ABC):

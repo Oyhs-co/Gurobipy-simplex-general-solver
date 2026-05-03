@@ -549,7 +549,7 @@ class LPAnalysis:
             
             pdf.set_font('Helvetica', '', 7)
             
-            for var, value in self.solution.variables.items():
+        for var, value in self.solution.variables.items() if isinstance(self.solution.variables, dict) else []:
                 reduced_cost = self.solution.reduced_costs.get(var, 0)
                 
                 if abs(reduced_cost) > 1e-6:

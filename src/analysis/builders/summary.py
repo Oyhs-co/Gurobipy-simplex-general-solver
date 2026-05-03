@@ -1,48 +1,50 @@
 """
-Summary section builder for LP analysis reports.
-"""
-from ..base import ReportBuilder
+Sección de resumen para reportes de análisis LP.
 
+"""
+
+from ..base import ReportBuilder
+from ..styles import FONTS, COLORS, LAYOUT
+from ..utils import format_number, format_percent
 
 class SummaryBuilder(ReportBuilder):
-    """Builder for the summary section."""
+    """Builder para la sección de resumen."""
     
     def build(self) -> None:
-        """Build summary section."""
+        """Construye la sección de resumen."""
         report = self.report
         summary = report.get_summary_data()
         
-        # Add section title
+        # Título de sección
         report.add_element({
             "type": "title",
-            "text": "Problem Summary",
-            "fontsize": 16,
-            "spacer": 0.3,
+            "text": "Resumen del Problema",
+            "fontsize": FONTS["heading"],
+            "spacer": LAYOUT["section_spacing"],
         })
         
-        # Add summary information
+        # Información del problema
         lines = [
-            f"Problem Name: {summary['problem_name']}",
-            f"Problem Type: {'MILP' if summary['is_mip'] else 'LP'}",
-            f"Optimization Sense: {summary['sense'].upper()}",
-            f"Number of Variables: {summary['num_variables']}",
-            f"Number of Constraints: {summary['num_constraints']}",
+            f"Nombre: {summary['problem_name']}",
+            f"Tipo: {'MILP' if summary['is_mip'] else 'LP'}",
+            f"Sentido: {summary['sense'].upper()}",
+            f"Variables: {summary['num_variables']}",
+            f"Restricciones: {summary['num_constraints']}",
+            f"Estado: {summary['status']}",
         ]
         
         if summary['objective_value'] is not None:
-            lines.append(f"Objective Value: {summary['objective_value']:.6f}")
-        
-        lines.append(f"Solution Status: {summary['status']}")
+            lines.append(f"Valor óptimo: {format_number(summary['objective_value'], 6)}")
         
         report.add_element({
             "type": "text_block",
             "lines": lines,
-            "fontsize": 11,
-            "spacer": 0.3,
+            "fontsize": FONTS["normal"],
+            "spacer": LAYOUT["section_spacing"],
         })
         
-        # Add separator
+        # Separador
         report.add_element({
             "type": "separator",
-            "spacer": 0.2,
+            "spacer": LAYOUT["section_spacing"],
         })

@@ -1,19 +1,26 @@
 """
 Reporte de benchmark multi-solver.
-Genera PDF con comparacion detallada de multiples solvers.
+Genera PDF con comparación detallada de multiples solvers.
+Utiliza BaseReport y builders del módulo analysis.
+La visualización de gráficos esta en src.visualization.
 """
 
 from __future__ import annotations
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
+
 import tempfile
 import os
 
 from fpdf import FPDF
-from fpdf.enums import Align, XPos, YPos
-import numpy as np
+from fpdf.enums import Align, YPos
 
 from ..solver import BenchmarkRunner
+from ..visualization import BenchmarkPlotter
+from .base import BaseReport, ReportBuilder
+from .builders.summary import SummaryBuilder
+from .builders.comparison_charts import ComparisonChartsBuilder
+from .builders.system_info import SystemInfoBuilder
 
 PAGE_WIDTH = 215.9
 PAGE_HEIGHT = 279.4
@@ -421,98 +428,43 @@ class BenchmarkReport:
         pdf.set_text_color(0, 0, 0)
     
     def _charts(self, pdf: BenchmarkPDF) -> None:
-        """Graficos comparativos."""
+        """Graficos comparativos usando el modulo de visualizacion."""
         self._header(pdf, "GRAFICOS COMPARATIVOS")
         
         try:
-            import matplotlib
-            matplotlib.use('Agg')
-            import matplotlib.pyplot as plt
-        except ImportError:
-            pdf.set_font('Helvetica', 'I', 10)
-            pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 6, "Graficos no disponibles (matplotlib no instalado).", new_y=YPos.NEXT)
-            return
-        
-        summary = self.runner.get_summary()
-        solvers = list(summary.get("by_solver", {}).keys())
-        
-        if not solvers:
-            pdf.set_font('Helvetica', 'I', 10)
-            pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 6, "No hay datos para graficar.", new_y=YPos.NEXT)
-            return
-        
-        try:
-            fig, axes = plt.subplots(2, 2, figsize=(10, 8))
-            fig.suptitle('Analisis Comparativo de Solvers - ISLA LP Benchmark', 
-                       fontsize=14, fontweight='bold', y=0.98)
+            # Usar BenchmarkPlotter del modulo visualization
+            plotter = BenchmarkPlotter(self.runner)
             
-            x_pos = np.arange(len(solvers))
-            colors = ['#003366', '#1E90FF', '#228B22', '#8B0000', '#4B0082', '#FF8C00'][:len(solvers)]
+            # Generar graficos y guardar temporalmente
+            tmp_files = []
             
-            times = [summary["by_solver"][s].get("avg_time", 0) * 1000 for s in solvers]
-            bars = axes[0, 0].bar(x_pos, times, color=colors, edgecolor='white', linewidth=0.5)
-            axes[0, 0].set_xticks(x_pos)
-            axes[0, 0].set_xticklabels(solvers, rotation=45, ha='right')
-            axes[0, 0].set_ylabel('Tiempo (ms)')
-            axes[0, 0].set_title('Tiempo Promedio por Solver')
-            axes[0, 0].grid(axis='y', alpha=0.3)
+            # Tiempo promedio
+            tmp_times = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            tmp_files.append(tmp_times.name)
+            plotter.plot_times_comparison(Path(tmp_times.name))
             
-            for bar, t in zip(bars, times):
-                axes[0, 0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                              f'{t:.1f}', ha='center', va='bottom', fontsize=8)
+            # Tasa de exito
+            tmp_success = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            tmp_files.append(tmp_success.name)
+            plotter.plot_success_rate(Path(tmp_success.name))
             
-            success = [summary["by_solver"][s].get("successful", 0) for s in solvers]
-            runs = [summary["by_solver"][s].get("runs", 1) for s in solvers]
-            success_rate = [s/r*100 if r > 0 else 0 for s, r in zip(success, runs)]
-            bars = axes[0, 1].bar(x_pos, success_rate, color=colors, edgecolor='white', linewidth=0.5)
-            axes[0, 1].set_xticks(x_pos)
-            axes[0, 1].set_xticklabels(solvers, rotation=45, ha='right')
-            axes[0, 1].set_ylabel('Tasa de Exito (%)')
-            axes[0, 1].set_title('Tasa de Exito por Solver')
-            axes[0, 1].set_ylim(0, 110)
-            axes[0, 1].axhline(y=100, color='green', linestyle='--', alpha=0.5, label='100%')
-            axes[0, 1].grid(axis='y', alpha=0.3)
+            # Perfil de rendimiento
+            tmp_profile = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            tmp_files.append(tmp_profile.name)
+            plotter.plot_performance_profile(Path(tmp_profile.name))
             
-            for bar, sr in zip(bars, success_rate):
-                axes[0, 1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2, 
-                              f'{sr:.0f}%', ha='center', va='bottom', fontsize=8)
+            # Dashboard
+            tmp_dashboard = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            tmp_files.append(tmp_dashboard.name)
+            plotter.plot_summary_dashboard(Path(tmp_dashboard.name))
             
-            total_times = [summary["by_solver"][s].get("total_time", 0) * 1000 for s in solvers]
-            bars = axes[1, 0].bar(x_pos, total_times, color=colors, edgecolor='white', linewidth=0.5)
-            axes[1, 0].set_xticks(x_pos)
-            axes[1, 0].set_xticklabels(solvers, rotation=45, ha='right')
-            axes[1, 0].set_ylabel('Tiempo Total (ms)')
-            axes[1, 0].set_title('Tiempo Total Acumulado')
-            axes[1, 0].grid(axis='y', alpha=0.3)
-            
-            for bar, t in zip(bars, total_times):
-                axes[1, 0].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                              f'{t:.1f}', ha='center', va='bottom', fontsize=8)
-            
-            memory = [summary["by_solver"][s].get("peak_memory", 0) for s in solvers]
-            bars = axes[1, 1].bar(x_pos, memory, color=colors, edgecolor='white', linewidth=0.5)
-            axes[1, 1].set_xticks(x_pos)
-            axes[1, 1].set_xticklabels(solvers, rotation=45, ha='right')
-            axes[1, 1].set_ylabel('Memoria (MB)')
-            axes[1, 1].set_title('Peak de Memoria por Solver')
-            axes[1, 1].grid(axis='y', alpha=0.3)
-            
-            for bar, m in zip(bars, memory):
-                axes[1, 1].text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5, 
-                              f'{m:.1f}', ha='center', va='bottom', fontsize=8)
-            
-            plt.tight_layout()
-            
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                plt.savefig(tmp.name, dpi=150, bbox_inches='tight', facecolor='white')
-                tmp_path = tmp.name
-            plt.close()
-            
-            if os.path.exists(tmp_path):
-                pdf.image(tmp_path, x=MARGIN, w=PAGE_WIDTH - 2*MARGIN)
-                os.unlink(tmp_path)
+            # Agregar al PDF
+            for tmp_path in tmp_files:
+                if os.path.exists(tmp_path):
+                    pdf.image(tmp_path, x=MARGIN, w=CONTENT_WIDTH)
+                    pdf.ln(5)
+                    os.unlink(tmp_path)
+                    
         except Exception as e:
             pdf.ln(5)
             pdf.set_font('Helvetica', 'I', 9)

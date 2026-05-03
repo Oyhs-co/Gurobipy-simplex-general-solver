@@ -1,7 +1,10 @@
 """
-System information section builder for LP analysis reports.
+Sección de información del sistema para reportes.
 """
+
 from ..base import ReportBuilder
+from ..styles import FONTS, COLORS, LAYOUT
+from ..utils import get_system_info, format_number
 
 
 class SystemInfoBuilder(ReportBuilder):

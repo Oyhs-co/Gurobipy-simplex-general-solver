@@ -1,7 +1,9 @@
 """
-Comparison charts section builder for LP analysis reports.
+Sección de gráficos comparativos para reportes de benchmark.
 """
+
 from ..base import ReportBuilder
+from ..styles import FONTS, CHART_COLORS, LAYOUT
 
 
 class ComparisonChartsBuilder(ReportBuilder):

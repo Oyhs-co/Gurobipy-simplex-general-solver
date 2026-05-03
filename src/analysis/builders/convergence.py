@@ -1,7 +1,10 @@
 """
-Convergence section builder for LP analysis reports.
+Sección de convergencia para reportes LP.Utiliza styles.py, tables.py y utils.py centralizados.
 """
+
 from ..base import ReportBuilder
+from ..styles import FONTS, COLORS, LAYOUT
+from ..utils import format_number
 
 
 class ConvergenceBuilder(ReportBuilder):

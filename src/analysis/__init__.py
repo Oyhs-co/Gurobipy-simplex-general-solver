@@ -16,13 +16,10 @@ from .builders.iis_section import IISSectionBuilder
 from .builders.convergence import ConvergenceBuilder
 from .builders.comparison_charts import ComparisonChartsBuilder
 from .builders.system_info import SystemInfoBuilder
-from .multi_analysis import MultiLPAnalysis
-from .benchmark_results import (
-    BenchmarkVisualizer, 
-    ResultsExporter, 
-    export_benchmark_results,
-)
+from .multi_report import MultiLPAnalysis
+from .benchmark_results import ResultsExporter, export_benchmark_results
 from .benchmark_report import BenchmarkReport
+from .single_report import LPAnalysis, ExecutionTimes
 
 __all__ = [
     "BaseReport",
@@ -46,8 +43,9 @@ __all__ = [
     "ComparisonChartsBuilder",
     "SystemInfoBuilder",
     "MultiLPAnalysis", 
-    "BenchmarkVisualizer",
     "ResultsExporter",
     "export_benchmark_results",
-    "BenchmarkReport"
+    "BenchmarkReport",
+    "LPAnalysis",
+    "ExecutionTimes",
 ]

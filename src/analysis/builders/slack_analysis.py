@@ -1,7 +1,10 @@
 """
-Slack analysis section builder for LP analysis reports.
+Sección de análisis de holguras para reportes LP.
 """
+
 from ..base import ReportBuilder
+from ..styles import FONTS, COLORS, LAYOUT
+from ..utils import format_number
 
 
 class SlackAnalysisBuilder(ReportBuilder):

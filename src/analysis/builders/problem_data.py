@@ -1,7 +1,11 @@
 """
-Problem data section builder for LP analysis reports.
+Sección de datos del problema para reportes LP.
 """
+
 from ..base import ReportBuilder
+from ..styles import FONTS, COLORS, LAYOUT
+from ..utils import format_number, truncate_string
+from ..tables import draw_dataframe_table
 
 
 class ProblemDataBuilder(ReportBuilder):

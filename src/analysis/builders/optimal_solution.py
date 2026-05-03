@@ -1,7 +1,11 @@
 """
-Optimal solution section builder for LP analysis reports.
+Sección de solución óptima para reportes LP.
 """
+
 from ..base import ReportBuilder
+from ..styles import FONTS, COLORS, LAYOUT
+from ..utils import format_number
+from ..tables import draw_dataframe_table
 
 
 class OptimalSolutionBuilder(ReportBuilder):
