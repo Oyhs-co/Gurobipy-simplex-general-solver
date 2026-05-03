@@ -21,6 +21,11 @@ class SolverStats:
     barrier_iterations: int = 0
     crossover_iterations: int = 0
     memory_used_mb: float = 0.0
+    # NUEVOS CAMPOS PARA CALIDAD NUMÉRICA Y PROGRESO
+    max_bound_viol: float = 0.0
+    max_constraint_viol: float = 0.0
+    condition_number: Optional[float] = None
+    progress_log: Optional[list[ProgressPoint]] = None
 
 
 class BaseSolver(ABC):
