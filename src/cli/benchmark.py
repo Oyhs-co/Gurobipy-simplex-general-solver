@@ -85,7 +85,11 @@ def run_benchmark(
         print("\nGenerating PDF report...")
         from src.analysis import BenchmarkReport
         
-        pdf_path = output_dir / "benchmark_report.pdf"
+        # Create output directory if it doesn't exist
+        output_dir_path = Path(output_dir) if output_dir else Path('data/benchmark_output')
+        output_dir_path.mkdir(parents=True, exist_ok=True)
+        
+        pdf_path = output_dir_path / "benchmark_report.pdf"
         benchmark_report = BenchmarkReport(runner, system_info)
         benchmark_report.generate(str(pdf_path))
         print(f"PDF saved to: {pdf_path}")
