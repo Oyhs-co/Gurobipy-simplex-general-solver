@@ -164,6 +164,7 @@ def main(argv: list[str] = None) -> int:
                 Path(args.input),
                 solver_name=solver_name,
                 visualize=args.visualize,
+                pdf=args.pdf,
                 times=args.times,
                 verbose=args.verbose,
                 output=args.output

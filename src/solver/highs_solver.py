@@ -66,16 +66,9 @@ class HiGHSSolver(BaseSolver):
             for i, var in enumerate(variables_list):
                 bound = problem.bounds.get(var)
                 lb = 0.0 if not bound or bound.lower is None else bound.lower
-                ub = INF if not bound or bound.upper is None else bound.upper
+                ub = highspy.kHighsInf if not bound or bound.upper is None else bound.upper
                 
-                # Set variable type (F3-5)
-                vtype = var_types.get(var, "continuous")
-                if vtype == "integer":
-                    hp.addVar(lb, ub, highspy.HighsVarType.kInteger)
-                elif vtype == "binary":
-                    hp.addVar(0.0, 1.0, highspy.HighsVarType.kBinary)
-                else:
-                    hp.addVar(lb, ub, highspy.HighsVarType.kContinuous)
+                hp.addVar(lb, ub)
             
             for var in variables_list:
                 bound = problem.bounds.get(var)

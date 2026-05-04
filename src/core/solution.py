@@ -64,9 +64,9 @@ class Solution:
     numerical_quality: Optional[NumericalQuality] = None
 
     def is_optimal(self) -> bool:
-        """Verifica si la solución es óptima usando tolerancia."""
+        """Verifica si la solucion es optima usando tolerancia."""
         status_upper = self.status.strip().upper()
-        return status_upper == "OPTIMAL" or status_upper == "OPTIMAL (TOLERANCE)"
+        return status_upper == "OPTIMAL" or status_upper == "OPTIMAL (TOLERANCE)" or "OPTIMAL" in status_upper
 
     def is_infeasible(self) -> bool:
         """Verifica si el problema es infactible."""

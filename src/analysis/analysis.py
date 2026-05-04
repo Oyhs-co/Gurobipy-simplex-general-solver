@@ -994,37 +994,21 @@ class LPAnalysis:
         pdf.multi_cell(CONTENT_WIDTH, 4, "Verificacion de la integridad del modelo: limites de variables, consistencia de restricciones y factibilidad.")
         pdf.ln(3)
         
+        # Validacion basica del modelo
+        is_valid = True
+        errors = []
+        warnings = []
+        
+        # Check basic problem structure
+        if not self.problem.variables:
+            is_valid = False
+            errors.append("No variables defined")
+        if not self.problem.constraints:
+            warnings.append("No constraints defined")
+        
+        is_valid = is_valid and len(errors) == 0
+        
         try:
-            # Try to import LPValidator, if not available use basic validation
-            LPValidator = None
-            try:
-                from src.utils.validation import LPValidator
-            except (ImportError, AttributeError):
-                LPValidator = None
-            
-            if LPValidator is not None:
-                try:
-                    validator = LPValidator(self.problem)
-                    is_valid, errors, warnings = validator.validate()
-                except Exception:
-                    LPValidator = None
-            
-            if LPValidator is None:
-                # Basic validation without LPValidator
-                is_valid = True
-                errors = []
-                warnings = []
-                
-                # Check basic problem structure
-                if not self.problem.variables:
-                    is_valid = False
-                    errors.append("No variables defined")
-                if not self.problem.constraints:
-                    warnings.append("No constraints defined")
-                
-                is_valid = is_valid and len(errors) == 0
-                validator = None
-            
             pdf.set_font('Helvetica', 'B', 9)
             if is_valid:
                 pdf.set_text_color(0, 128, 0)
@@ -1051,9 +1035,9 @@ class LPAnalysis:
                 for warn in warnings[:5]:
                     pdf.cell(5, 4, "-")
                     pdf.cell(0, 4, warn[:60], new_x=XPos.LEFT, new_y=YPos.NEXT)
-        except ImportError:
+        except Exception as e:
             pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 5, "Modulo de validacion no disponible", new_x=XPos.LEFT, new_y=YPos.NEXT)
+            pdf.cell(0, 5, "Error en validacion", new_x=XPos.LEFT, new_y=YPos.NEXT)
         
         pdf.set_text_color(0, 0, 0)
         pdf.ln(3)

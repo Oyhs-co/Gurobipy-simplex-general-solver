@@ -100,13 +100,18 @@ class SCIPSolver(BaseSolver):
                 variables[var] = scip_var
             
             # Set objective
-            sense = "max" if problem.sense.lower() == "max" else "min"
             obj_expr = sum(
                 coeff * variables[var]
                 for var, coeff in problem.objective.items()
                 if coeff != 0
             )
-            model.setObjective(obj_expr, sense)
+            model.setObjective(obj_expr)
+            
+            # Set sense
+            if problem.sense.lower() == "max":
+                model.setMaximize()
+            else:
+                model.setMinimize()
             
             # Add constraints
             for i, constraint in enumerate(problem.constraints):
@@ -162,10 +167,12 @@ class SCIPSolver(BaseSolver):
                 reduced_costs = {}
                 
                 try:
-                    for i, constraint in enumerate(problem.constraints):
-                        dual = model.getDualsolLinear(problem.constraints[i])
+                    # Get SCIP constraints
+                    scip_cons = model.getConss()
+                    for i, cons in enumerate(scip_cons):
+                        dual = model.getDualsolLinear(cons)
                         if abs(dual) > 1e-10:
-                            dual_values[constraint.name or f"R{i}"] = dual
+                            dual_values[problem.constraints[i].name or f"R{i}"] = dual
                     
                     for var_name, var_obj in variables.items():
                         rc = model.getRedcostVar(var_obj)

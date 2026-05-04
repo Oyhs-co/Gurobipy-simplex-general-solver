@@ -435,7 +435,7 @@ class BenchmarkRunner:
                     r.solution.objective_value,
                     f"{r.parse_time:.6f}",
                     f"{r.build_time:.6f}",
-                    f"{r.stats.solve_time:.6f}",
+                    f"{r.solve_time:.6f}",
                     f"{r.total_time:.6f}",
                     r.stats.iterations,
                     r.stats.nodes,
@@ -459,7 +459,7 @@ class BenchmarkRunner:
         print("-"*60)
         
         for solver, data in summary["by_solver"].items():
-            print(f"{solver:<15} {data['runs']:<8} {data['successful']:<10} {data['avg_time']*1000:.2f}ms")
+            print(f"{solver:<15} {data['runs']:<8} {data['successful']:<10} {data['avg_time']*1000:.6f}ms")
         
         print("\n" + "="*60)
 

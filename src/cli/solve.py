@@ -16,7 +16,7 @@ from src.cli import get_system_info
 
 def solve_single(
     input_path: Path,
-    solver_name: str = "gurobi",
+    solver_name: str = "highs",
     visualize: bool = False,
     pdf: bool = False,
     times: bool = False,
@@ -94,11 +94,17 @@ def solve_single(
             print("\n" + "="*50)
             print("EXECUTION TIMES")
             print("="*50)
-            print(f"Parsing:           {parse_time*1000:.2f} ms")
-            print(f"Building LP:       {build_time*1000:.2f} ms")
-            print(f"Solving ({solver_name}): {solve_time*1000:.2f} ms")
+            print(f"Parsing:           {parse_time*1000:.6f} ms")
+            print(f"Building LP:       {build_time*1000:.6f} ms")
+            print(f"Solving ({solver_name}): {solve_time*1000:.6f} ms")
             print("-"*50)
-            print(f"TOTAL:             {total_time*1000:.2f} ms")
+            print(f"TOTAL:             {total_time*1000:.6f} ms")
+            print("="*50)
+            print(f"Parsing:           {parse_time*1000:.6f} ms")
+            print(f"Building LP:       {build_time*1000:.6f} ms")
+            print(f"Solving ({solver_name}): {solve_time*1000:.6f} ms")
+            print("-"*50)
+            print(f"TOTAL:             {total_time*1000:.6f} ms")
             print("="*50)
         
         return 0
@@ -113,7 +119,7 @@ def solve_single(
 
 def solve_multi(
     input_path: Path,
-    solver_name: str = "gurobi",
+    solver_name: str = "highs",
     visualize: bool = False,
     pdf: bool = False,
     times: bool = False,
@@ -162,7 +168,7 @@ def solve_multi(
                 continue
             
             # Guardar resultado
-            from src.solver import MultiSolverResult, ProblemResult
+            from src.solver import ProblemResult
             result = ProblemResult(
                 problem=problem,
                 solution=solution,
@@ -192,12 +198,16 @@ def solve_multi(
             print("\nGenerando reporte PDF multi-problema...")
             try:
                 from src.analysis.multi_analysis import MultiLPAnalysis
+                from src.solver import MultiSolverResult
                 from pathlib import Path
                 
                 output_path = Path(output or input_path.with_stem(input_path.stem + "_multi").with_suffix('.pdf'))
                 
                 # Crear MultiSolverResult
-                multi_result = MultiSolverResult(results=results)
+                multi_result = MultiSolverResult(
+                    results=results,
+                    solver_name=solver_name
+                )
                 
                 analysis = MultiLPAnalysis(multi_result)
                 analysis.generate_pdf(str(output_path))
@@ -207,104 +217,6 @@ def solve_multi(
                 if verbose:
                     import traceback
                     traceback.print_exc()
-        
-        return 0
-        
-    except Exception as e:
-        print(f"Error: {e}")
-        if verbose:
-            import traceback
-            traceback.print_exc()
-        return 1
-    
-    try:
-        solver_class = SolverRegistry.get(solver_name)
-        if solver_class is None:
-            print(f"Error: Solver '{solver_name}' no encontrado")
-            return 1
-        
-        with open(input_path, 'r') as f:
-            content = f.read()
-        
-        from src.parser import MultiLPParser
-        parser = MultiLPParser(content)
-        problems = parser.parse_all()
-        
-        print(f"\n{'='*50}")
-        print("MULTI-PROBLEM MODE")
-        print("="*50)
-        print(f"Problems found: {len(problems)}")
-        print(f"Solver: {solver_name}")
-        
-        print("\nSolving problems...\n")
-        
-        for i, problem in enumerate(problems, 1):
-            print(f"--- Problema {i} ---")
-            
-            lp = LPBuilder(problem).build()
-            solver = SolverLP(lp)
-            solution = solver.solve()
-            
-            if solution.is_optimal():
-                print(f"Status: OPTIMAL")
-                print(f"Optimal value: {solution.objective_value:.4f}")
-                vars_str = ", ".join(f"{k}={v:.2f}" for k, v in solution.variables.items())
-                print(f"Variables: {vars_str}")
-            else:
-                print(f"Status: {solution.status}")
-            
-            if visualize and len(problem.variables) == 2:
-                from src.visualization import LinearVisualization
-                output_name = f"{input_path.stem}_problema_{i}.png"
-                viz = LinearVisualization(problem, solution)
-                viz.plot(save_path=output_name, show=False)
-                print(f"Graph saved to: {output_name}")
-        
-        print(f"\nProblems solved: {len(problems)}/{len(problems)}")
-        
-        # Generar PDF si se solicita
-        if pdf:
-            print("\nGenerando reporte PDF multi-problema...")
-            from src.analysis import MultiProblemReport
-            from src.solver import MultiSolverResult, ProblemResult
-            from pathlib import Path
-            
-            # Convertir resultados a MultiSolverResult
-            results = []
-            for i, (problem, solution) in enumerate(zip(problems, [None]*len(problems))):
-                # Necesitamos obtener las soluciones - esto es simplificado
-                pass
-            
-            # Por ahora usar el método directo
-            try:
-                from src.analysis.multi_analysis import MultiLPAnalysis
-                output_path = Path(output or input_path.with_stem(input_path.stem + "_multi").with_suffix('.pdf'))
-                
-                # Crear MultiSolverResult simplificado
-                class SimpleMultiResult:
-                    def __init__(self, problems_list):
-                        self.results = []
-                        for i, p in enumerate(problems_list):
-                            # Crear un ProblemResult simplificado
-                            class SimpleResult:
-                                def __init__(self, prob, sol):
-                                    self.problem = prob
-                                    self.solution = sol
-                                    self.error = None
-                                    self.build_time = 0
-                                    self.solve_time = 0
-                                    self.total_time = 0
-                            # Aquí necesitaríamos resolver cada problema
-                            self.results.append(SimpleResult(p, None))
-                
-                # Simplificado: solo generar reporte con problemas
-                analysis = MultiLPAnalysis.__new__(MultiLPAnalysis)
-                analysis.results = SimpleMultiResult(problems)
-                analysis.page_count = 0
-                analysis.generate_pdf(str(output_path))
-                print(f"PDF multi-problema guardado en: {output_path}")
-            except Exception as e:
-                print(f"Error generando PDF multi: {e}")
         
         return 0
         

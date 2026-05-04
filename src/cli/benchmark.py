@@ -103,13 +103,27 @@ def run_benchmark(
 def _problem_to_text(problem) -> str:
     """Convierte un LinearProblem a texto."""
     sense = problem.sense.upper()
-    terms = [f"{coeff:+g}{var}" for var, coeff in problem.objective.items()]
-    obj = " ".join(terms).replace("+", "")
+    terms = []
+    for var, coeff in problem.objective.items():
+        if coeff >= 0:
+            terms.append(f"+{coeff}{var}")
+        else:
+            terms.append(f"{coeff}{var}")
+    obj = " ".join(terms) if terms else "0"
+    if obj.startswith("+"):
+        obj = obj[1:]
     lines = [f"{sense} Z = {obj}"]
     
     for c in problem.constraints:
-        c_terms = [f"{coeff:+g}{var}" for var, coeff in c.coefficients.items()]
-        c_str = " ".join(c_terms).replace("+", "")
+        c_terms = []
+        for var, coeff in c.coefficients.items():
+            if coeff >= 0:
+                c_terms.append(f"+{coeff}{var}")
+            else:
+                c_terms.append(f"{coeff}{var}")
+        c_str = " ".join(c_terms)
+        if c_str.startswith("+"):
+            c_str = c_str[1:]
         lines.append(f"{c_str} {c.sense} {c.rhs}")
     
     for var, bound in problem.bounds.items():
